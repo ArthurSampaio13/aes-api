@@ -19,7 +19,7 @@ from typing import Any
 from ....lib.project import ProjectContext
 from ...base import Feature, FeatureManifest, FeaturePlan, FileOp
 
-SUPPORTED_MODES: tuple[str, ...] = ("local", "prod", "nginx")
+SUPPORTED_MODES: tuple[str, ...] = ("local", "prod", "nginx", "k8s")
 
 _TEMPLATES_ROOT = Path(__file__).parent / "templates"
 
@@ -57,6 +57,25 @@ class DeployFeature(Feature):
             "backend_context": backend_context,
             "env_file": env_file,
         }
+
+        if mode == "k8s":
+            chart_dir = Path(params.get("chart_dir") or (project.repo_root / "deploy" / "helm" / project_name))
+            chart_files: list[FileOp] = [
+                FileOp(template="k8s/Chart.yaml.j2", target=chart_dir / "Chart.yaml"),
+                FileOp(template="k8s/values.yaml.j2", target=chart_dir / "values.yaml"),
+                FileOp(template="k8s/templates/deployment-api.yaml.j2", target=chart_dir / "templates" / "deployment-api.yaml"),
+                FileOp(
+                    template="k8s/templates/deployment-worker.yaml.j2",
+                    target=chart_dir / "templates" / "deployment-worker.yaml",
+                ),
+                FileOp(template="k8s/templates/service-api.yaml.j2", target=chart_dir / "templates" / "service-api.yaml"),
+            ]
+            return FeaturePlan(
+                manifest=self.manifest(),
+                templates_root=_TEMPLATES_ROOT,
+                template_context=context,
+                files=tuple(chart_files),
+            )
 
         compose_target = Path(params.get("compose_target") or (project.repo_root / "docker-compose.yml"))
         files: list[FileOp] = [
