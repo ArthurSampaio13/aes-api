@@ -1,5 +1,9 @@
 default_language_version:
-  python: python3.11
+  # Pinned to an exact minor version (python3.11) used to fail here with
+  # "failed to find interpreter" on machines that don't have that exact
+  # binary on PATH (this repo's own venv runs 3.13). `python3` lets each
+  # hook's virtualenv bootstrap off whatever interpreter is actually present.
+  python: python3
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -61,11 +65,33 @@ repos:
 
   - repo: local
     hooks:
-    - id: unit_test
-      name: Unit test
+    - id: strip_ai_trailers
+      name: Strip AI co-author trailers (this repo uses plain commit messages)
       language: system
-      entry: uv run pytest
+      entry: python3 scripts/strip-ai-trailers.py
+      pass_filenames: true
+      stages: [commit-msg]
+    - id: unit_test
+      name: Unit test (backend)
+      language: system
+      entry: bash -c 'cd backend && uv run pytest'
       pass_filenames: false
       always_run: true
       types: [python]
-      stages: [manual]
+      stages: [pre-push]
+    - id: mypy_backend
+      name: mypy (backend)
+      language: system
+      entry: bash -c 'cd backend && uv run mypy src'
+      pass_filenames: false
+      always_run: true
+      types: [python]
+      stages: [pre-push]
+    - id: deptry_backend
+      name: deptry — unused/missing dependencies (backend)
+      language: system
+      entry: bash -c 'cd backend && uv run deptry src'
+      pass_filenames: false
+      always_run: true
+      types: [python]
+      stages: [pre-push]

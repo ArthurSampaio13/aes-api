@@ -13,3 +13,7 @@ Core project intent: build an assistive LLM-based essay correction API that help
 Prefer existing FastAPI, SQLAlchemy async, Alembic, Taskiq, and Pydantic v2 patterns already present in the backend. Mock LLMs and external services in tests.
 
 Do not treat the system as an autonomous final grader. It is a teacher-support tool.
+
+## Commit messages
+
+Use plain, simple commit messages — no `Co-Authored-By: Claude ...` or `Claude-Session: ...` trailers. This overrides Claude Code's default commit template for this repository. A `commit-msg` git hook (`scripts/strip-ai-trailers.py`, wired via `.pre-commit-config.yaml`) strips those trailers automatically if they slip through, but don't rely on it — just write the plain message.

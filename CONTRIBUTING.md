@@ -55,30 +55,34 @@ uv run pytest
 
 ### Linting
 
-Use mypy for type checking:
+Every command below runs from `backend/`. `taskipy` shortens them — set up once with `uv sync --all-packages --all-extras`, then:
 
 ```sh
-mypy src
+cd backend
+uv run task lint        # ruff check --fix
+uv run task format      # ruff format
+uv run task typecheck   # mypy src
+uv run task deps        # deptry src — flags unused/missing dependencies
+uv run task test        # pytest
+uv run task check       # all of the above, in order
 ```
 
-Use ruff for style:
-
-```sh
-ruff check --fix
-ruff format
-```
-
-Ensure your code passes linting before submitting.
+Ensure your code passes `uv run task check` before submitting.
 
 ### Using pre-commit for Better Code Quality
 
-It helps in identifying simple issues before submission to code review. By running automated checks, pre-commit can ensure code quality and consistency.
+It helps in identifying simple issues before submission to code review. By running automated checks, pre-commit can ensure code quality and consistency. Fast checks (ruff lint + format) run on every commit; slower checks (mypy, deptry, the backend test suite) run on `git push` instead, so commits stay quick.
 
 1. **Set Up Pre-commit Hooks**:
-   Set up the hooks with `pre-commit install`. This command will install hooks into your .git/ directory which will automatically check your commits for issues.
+   Install all three hook stages so commit-time checks, the commit-message cleanup, and push-time checks are all wired up (`pre-commit` isn't a project dependency — `uvx` runs it without adding one):
+   ```sh
+   uvx pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push
+   ```
 1. **Committing Your Changes**:
    After making your changes, use `git commit -am 'Add some fooBar'` to commit them. Pre-commit will run automatically on your files when you commit, ensuring that they meet the required standards.
    Note: If pre-commit identifies issues, it may block your commit. Fix these issues and commit again. This ensures that all contributions are of high quality.
+1. **Pushing Your Changes**:
+   `git push` runs mypy, deptry, and the backend test suite. A failure here blocks the push — fix it and push again.
 1. **Pushing Changes and Creating Pull Request**:
    Push your changes to the branch using `git push origin feature/fooBar`.
    Visit your fork on GitHub and create a new Pull Request to the main repository.

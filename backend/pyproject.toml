@@ -14,6 +14,7 @@ dependencies = [
     "aiomcache>=0.8.2",
     "aiosqlite>=0.21.0",
     "alembic>=1.16.4",
+    "anyio>=4.13.0",
     "asyncpg>=0.30.0",
     "bcrypt>=5.0.0",
     "faker>=37.1.0",
@@ -28,10 +29,12 @@ dependencies = [
     "redis>=6.1.0",
     "sqladmin>=0.22.0",
     "sqlalchemy>=2.0.37",
+    "starlette>=0.40.0",
     "taskiq>=0.11.20",
     "taskiq-redis>=1.1.2",
     "taskiq-aio-pika>=0.4.3",
     "user-agents>=2.2.0",
+    "wtforms>=3.1.2",
 ]
 
 [project.optional-dependencies]
@@ -43,7 +46,35 @@ dev = [
     "pytest-mock>=3.14.0",
     "testcontainers[postgres]>=4.10.0",
     "pytest-xdist[psutil]>=3.8.0",
+    "taskipy>=1.14.1",
+    "deptry>=0.23.0",
 ]
+
+[tool.deptry]
+# The "dev" group is tooling (mypy, ruff, pytest, taskipy, deptry itself...), never imported by src/.
+optional_dependencies_dev_groups = ["dev"]
+
+[tool.deptry.per_rule_ignores]
+# Loaded by SQLAlchemy from the DATABASE_URL driver prefix (e.g. "postgresql+asyncpg://"),
+# by Alembic's CLI (outside src/), or by another direct dependency's internals — never
+# `import`-ed by name in src/, so deptry can't see the usage from source scanning alone.
+DEP002 = [
+    "aiosqlite",   # sqlite+aiosqlite:// driver, used in tests via SQLITE_ASYNC_PREFIX
+    "alembic",     # invoked as a CLI (`alembic upgrade head`), lives in migrations/ outside src/
+    "asyncpg",     # postgresql+asyncpg:// driver
+    "faker",       # used by tests/conftest.py, outside src/
+    "greenlet",    # required by SQLAlchemy's async bridge, never imported directly
+    "itsdangerous",  # required by starlette.middleware.sessions.SessionMiddleware internally
+    "jinja2",      # required by fastapi[standard]'s HTML templating support
+]
+
+[tool.taskipy.tasks]
+test = "pytest"
+lint = "ruff check --fix"
+format = "ruff format"
+typecheck = "mypy src"
+deps = "deptry src"
+check = "ruff check --fix && ruff format --check && mypy src && deptry src && pytest"
 
 [tool.setuptools.packages.find]
 where = ["src"]
