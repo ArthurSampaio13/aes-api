@@ -16,3 +16,16 @@ class BatchSubmitRequest(BaseModel):
 class BatchSubmitResponse(BaseModel):
     batch_id: UUID
     job_ids: list[UUID]
+
+
+class JobStatusRead(BaseModel):
+    job_id: UUID
+    status: str
+    provider: str
+    model: str
+
+
+class JobResultRead(BaseModel):
+    scores: dict
+    feedback: str
+    requires_teacher_review: bool

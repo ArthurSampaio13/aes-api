@@ -8,7 +8,7 @@ from ..common.utils.error_handler import handle_exception
 from .dependencies import AesServiceDep
 from .schemas.essay_prompt import EssayPromptCreate, EssayPromptRead
 from .schemas.rubric import RubricCreate, RubricRead
-from .schemas.submission import BatchSubmitRequest, BatchSubmitResponse
+from .schemas.submission import BatchSubmitRequest, BatchSubmitResponse, JobResultRead, JobStatusRead
 
 router = APIRouter(tags=["AES"])
 
@@ -66,6 +66,28 @@ async def submit_batch(
             data, user_id=current_user["id"], municipio_id=current_user["municipio_id"], db=db
         )
         return {"batch_id": batch_id, "job_ids": job_ids}
+    except Exception as e:
+        http_exception = handle_exception(e)
+        if http_exception:
+            raise http_exception
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
+
+@router.get("/jobs/{job_id}", response_model=JobStatusRead)
+async def get_job_status(job_id: str, db: TenantSessionDep, aes_service: AesServiceDep) -> dict[str, Any]:
+    try:
+        return await aes_service.get_job_status(job_id, db)
+    except Exception as e:
+        http_exception = handle_exception(e)
+        if http_exception:
+            raise http_exception
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
+
+@router.get("/jobs/{job_id}/results", response_model=JobResultRead)
+async def get_job_results(job_id: str, db: TenantSessionDep, aes_service: AesServiceDep) -> dict[str, Any]:
+    try:
+        return await aes_service.get_job_result(job_id, db)
     except Exception as e:
         http_exception = handle_exception(e)
         if http_exception:

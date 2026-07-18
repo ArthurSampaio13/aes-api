@@ -3,12 +3,12 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..common.exceptions import ResourceNotFoundError
-from .crud import crud_essay_prompts, crud_prompt_templates, crud_rubrics
+from .crud import crud_correction_jobs, crud_correction_results, crud_essay_prompts, crud_prompt_templates, crud_rubrics
 from .models.correction import CorrectionJob
 from .models.submission import Batch, Submission
 from .schemas.essay_prompt import EssayPromptCreate, EssayPromptRead
 from .schemas.rubric import RubricCreate, RubricRead
-from .schemas.submission import BatchSubmitRequest
+from .schemas.submission import BatchSubmitRequest, JobResultRead
 from .worker import run_correction_job
 
 
@@ -77,3 +77,15 @@ class AesService:
             )
 
         return batch.uuid, job_ids
+
+    async def get_job_status(self, job_id: str, db: AsyncSession) -> dict[str, Any]:
+        job = await crud_correction_jobs.get(db=db, uuid=job_id)
+        if not job:
+            raise ResourceNotFoundError(f"Job {job_id} not found")
+        return {"job_id": job["uuid"], "status": job["status"], "provider": job["provider"], "model": job["model"]}
+
+    async def get_job_result(self, job_id: str, db: AsyncSession) -> dict[str, Any]:
+        result = await crud_correction_results.get(db=db, correction_job_id=job_id, schema_to_select=JobResultRead)
+        if not result:
+            raise ResourceNotFoundError(f"Result for job {job_id} not found (job may not be done yet)")
+        return result
