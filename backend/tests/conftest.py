@@ -10,8 +10,10 @@ import redis as syncredis
 import redis.asyncio as aioredis
 from faker import Faker
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 from testcontainers.core.docker_client import DockerClient
 
 # mypy: disable-error-code="import-untyped"
@@ -101,6 +103,35 @@ async def test_db(test_db_engine):
 async def db_session(test_db):
     """Alias for test_db."""
     yield test_db
+
+
+@pytest_asyncio.fixture(scope="function")
+async def rls_db(test_db, test_db_url):
+    """A session running as a non-superuser role, so Postgres Row-Level Security actually applies.
+
+    testcontainers' bootstrap role is a superuser, and superusers always bypass RLS regardless of FORCE ROW LEVEL
+    SECURITY. Tests that verify RLS policies must use this fixture instead of test_db/db_session. Uses its own NullPool
+    engine so the SET ROLE'd connection can never leak into test_db_engine's pool (a pooled connection left in a non-
+    superuser role broke that fixture's drop_all teardown).
+    """
+    await test_db.execute(
+        text(
+            "DO $$ BEGIN "
+            "CREATE ROLE aes_rls_test_role NOSUPERUSER NOBYPASSRLS LOGIN PASSWORD 'aes_rls_test_role'; "
+            "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+        )
+    )
+    await test_db.execute(text("GRANT USAGE ON SCHEMA public TO aes_rls_test_role"))
+    await test_db.execute(text("GRANT ALL ON ALL TABLES IN SCHEMA public TO aes_rls_test_role"))
+    await test_db.execute(text("GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO aes_rls_test_role"))
+    await test_db.commit()
+
+    isolated_engine = create_async_engine(test_db_url, poolclass=NullPool)
+    isolated_session = async_sessionmaker(isolated_engine, class_=AsyncSession, expire_on_commit=False)
+    async with isolated_session() as session:
+        await session.execute(text("SET ROLE aes_rls_test_role"))
+        yield session
+    await isolated_engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="function")
