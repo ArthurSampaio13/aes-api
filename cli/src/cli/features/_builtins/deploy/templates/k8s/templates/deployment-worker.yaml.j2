@@ -15,7 +15,7 @@ spec:
       containers:
         - name: worker
           image: {{ "{{ .Values.worker.image }}" }}
-          command: ["taskiq", "worker", "infrastructure.taskiq.worker:default_broker"]
+          command: ["taskiq", "worker", "infrastructure.taskiq.worker:default_broker", "modules.aes.worker"]
           workingDir: /app/src
           envFrom:
             - secretRef:
