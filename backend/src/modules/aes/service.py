@@ -4,8 +4,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..common.exceptions import ResourceNotFoundError
 from .crud import crud_essay_prompts, crud_prompt_templates, crud_rubrics
+from .models.correction import CorrectionJob
+from .models.submission import Batch, Submission
 from .schemas.essay_prompt import EssayPromptCreate, EssayPromptRead
 from .schemas.rubric import RubricCreate, RubricRead
+from .schemas.submission import BatchSubmitRequest
 
 
 class AesService:
@@ -32,3 +35,38 @@ class AesService:
         if not prompt:
             raise ResourceNotFoundError(f"EssayPrompt {essay_prompt_uuid} not found")
         return prompt
+
+    async def submit_batch(
+        self, data: BatchSubmitRequest, user_id: int, municipio_id: int, db: AsyncSession
+    ) -> tuple[Any, list[Any]]:
+        essay_prompt = await self.get_essay_prompt(str(data.essay_prompt_uuid), db)
+
+        batch = Batch(municipio_id=municipio_id, essay_prompt_id=essay_prompt["uuid"], created_by_user_id=user_id)
+        db.add(batch)
+        await db.flush()
+
+        job_ids = []
+        for text in data.texts:
+            submission = Submission(
+                municipio_id=municipio_id,
+                batch_id=batch.uuid,
+                input_type="text",
+                original_ref="",
+                raw_text=text,
+            )
+            db.add(submission)
+            await db.flush()
+
+            job = CorrectionJob(
+                municipio_id=municipio_id,
+                submission_id=submission.uuid,
+                provider=data.provider,
+                model=data.model,
+                status="pending",
+            )
+            db.add(job)
+            await db.flush()
+            job_ids.append(job.uuid)
+
+        await db.commit()
+        return batch.uuid, job_ids
