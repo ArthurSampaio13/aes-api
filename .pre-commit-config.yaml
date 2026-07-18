@@ -59,7 +59,7 @@ repos:
         additional_dependencies:
           - mdformat-gfm
           - mdformat_frontmatter
-        exclude: CHANGELOG.md
+        exclude: CHANGELOG.md|docs/getting-started/index.md
 
   - repo: local
     hooks:
