@@ -71,6 +71,7 @@ class DeployFeature(Feature):
                     target=chart_dir / "templates" / "deployment-worker.yaml",
                 ),
                 FileOp(template="k8s/templates/service-api.yaml.j2", target=chart_dir / "templates" / "service-api.yaml"),
+                FileOp(template="k8s/templates/job-migrate.yaml.j2", target=chart_dir / "templates" / "job-migrate.yaml"),
             ]
             return FeaturePlan(
                 manifest=self.manifest(),
