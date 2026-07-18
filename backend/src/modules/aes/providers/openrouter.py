@@ -20,22 +20,33 @@ class OpenRouterProvider:
         self._model = model
 
     async def correct(self, essay_text: str, prompt: str, params: dict[str, Any]) -> ProviderResponse:
-        rendered_prompt = prompt.format(essay_text=essay_text)
+        rendered_prompt = prompt.replace("{essay_text}", essay_text)
         started_at = time.monotonic()
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                _OPENROUTER_URL,
-                json={
-                    "model": self._model,
-                    "messages": [{"role": "user", "content": rendered_prompt}],
-                    "temperature": params.get("temperature", 0.0),
-                },
-                headers={"Authorization": f"Bearer {self._api_key}"},
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    _OPENROUTER_URL,
+                    json={
+                        "model": self._model,
+                        "messages": [{"role": "user", "content": rendered_prompt}],
+                        "temperature": params.get("temperature", 0.0),
+                    },
+                    headers={"Authorization": f"Bearer {self._api_key}"},
+                )
+                response.raise_for_status()
+                body = response.json()
+                content = body["choices"][0]["message"]["content"]
+                usage = body.get("usage", {})
+        except (httpx.HTTPError, KeyError, IndexError) as exc:
+            return ProviderResponse(
+                raw_text="",
+                structured=None,
+                tokens_in=0,
+                tokens_out=0,
+                latency_ms=int((time.monotonic() - started_at) * 1000),
+                validation_error=str(exc),
             )
         latency_ms = int((time.monotonic() - started_at) * 1000)
-        body = response.json()
-        content = body["choices"][0]["message"]["content"]
-        usage = body.get("usage", {})
 
         try:
             structured = CorrectionCandidate.model_validate_json(content)
