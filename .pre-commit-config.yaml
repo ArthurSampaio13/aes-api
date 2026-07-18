@@ -5,6 +5,12 @@ default_language_version:
   # hook's virtualenv bootstrap off whatever interpreter is actually present.
   python: python3
 
+# Hooks below have no `stages:` of their own, so without this they'd run at
+# every installed hook type — including pre-push, where a formatter rewriting
+# a file blocks the push. Formatting/linting belongs at commit time only; the
+# local hooks at the bottom of this file opt into pre-push/commit-msg explicitly.
+default_stages: [pre-commit]
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0

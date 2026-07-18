@@ -34,25 +34,31 @@ A plataforma é compartilhada entre municípios (tenants), com isolamento de dad
 ### 2.2 Entidades
 
 - **`EssayPrompt`** — proposta de redação: enunciado, ano escolar (6º–9º), gênero textual, `support_texts` (lista de textos de apoio/motivadores anexados pelo professor — extensão além do que o TCC descreve, mas alinhada à literatura citada nele sobre uso de referências aplicáveis), referência à `Rubric` ativa. Escopada por `municipio_id` (RLS).
+
 - **`Rubric`** (versionada, imutável após criação) — os 5 critérios fixos do `AGENTS.md`: `adequacao_tema`, `estrutura_textual`, `coesao_coerencia`, `adequacao_ling`, `vocabulario`. Cada critério tem descritor, escala de pontuação e peso. Qualquer alteração cria nova versão (TCC 3.5, 3.9). `municipio_id` anulável (ver 2.1).
+
 - **`PromptTemplate`** (versionado, imutável) — template de instrução enviado ao LLM; monta dinamicamente com redação do aluno, proposta, textos de apoio, rubrica ativa e formato de saída esperado. `municipio_id` anulável (ver 2.1).
+
 - **`Batch`** — lote de submissão. Escopado por `municipio_id` (RLS).
+
 - **`Submission`** — redação individual (texto ou imagem) dentro de um lote; referência ao objeto original no storage S3-compatível. Escopada por `municipio_id` (RLS).
+
 - **`CorrectionJob`** — unidade de processamento assíncrono por submissão: estado (`pending`/`processing`/`done`/`failed`), condição experimental (provedor + modelo + versão de prompt + versão de rubrica + parâmetros de inferência). Escopado por `municipio_id` (RLS).
+
 - **`CorrectionAttempt`** — uma linha por tentativa de correção de um `CorrectionJob` (1:N). Escopada por `municipio_id` (RLS). É o registro de execução exigido pelo TCC 3.7/3.9:
 
-  | Campo | Descrição |
-  |---|---|
-  | `attempt_number` | ordem da tentativa |
-  | `provider`, `model` | condição experimental exata |
-  | `prompt_version`, `rubric_version` | versões usadas |
-  | `inference_params` | temperatura, max_tokens etc. |
-  | `tokens_in`, `tokens_out`, `latency_ms` | uso e desempenho, extraídos da resposta do provedor |
-  | `raw_response_ref` | ponteiro para o storage (resposta bruta) |
-  | `validation_errors` | falhas de validação contra o schema Pydantic, se houver |
-  | `outcome` | `success` / `retry` / `failed` |
-  | `error_message` | preenchido em falha |
-  | `created_at` | timestamp |
+  | Campo                                   | Descrição                                               |
+  | --------------------------------------- | ------------------------------------------------------- |
+  | `attempt_number`                        | ordem da tentativa                                      |
+  | `provider`, `model`                     | condição experimental exata                             |
+  | `prompt_version`, `rubric_version`      | versões usadas                                          |
+  | `inference_params`                      | temperatura, max_tokens etc.                            |
+  | `tokens_in`, `tokens_out`, `latency_ms` | uso e desempenho, extraídos da resposta do provedor     |
+  | `raw_response_ref`                      | ponteiro para o storage (resposta bruta)                |
+  | `validation_errors`                     | falhas de validação contra o schema Pydantic, se houver |
+  | `outcome`                               | `success` / `retry` / `failed`                          |
+  | `error_message`                         | preenchido em falha                                     |
+  | `created_at`                            | timestamp                                               |
 
 - **`CorrectionResult`** — nota por critério, justificativa vinculada ao texto e feedback acionável; referencia o `CorrectionAttempt` que efetivamente originou o resultado. Escopado por `municipio_id` (RLS). Isso permite reconstruir, para qualquer correção, a cadeia completa de tentativas (inclusive as que falharam) até o resultado aceito.
 
