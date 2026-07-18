@@ -8,76 +8,80 @@ Pick whichever workflow fits you:
 
 === "Local with uv"
 
-    ### Prerequisites
+````
+### Prerequisites
 
-    - [uv](https://docs.astral.sh/uv/getting-started/installation/) (0.4+)
-    - PostgreSQL and Redis running locally (or use the Docker tab)
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) (0.4+)
+- PostgreSQL and Redis running locally (or use the Docker tab)
 
-    ### 1. Get the Template
+### 1. Get the Template
 
-    1. Click **"Use this template"** on the [GitHub repository](https://github.com/benavlabs/fastapi-boilerplate)
-    2. Create a new repository with your project name
-    3. Clone your new repository and `cd` into the backend:
+1. Click **"Use this template"** on the [GitHub repository](https://github.com/benavlabs/fastapi-boilerplate)
+2. Create a new repository with your project name
+3. Clone your new repository and `cd` into the backend:
 
-    ```bash
-    git clone https://github.com/yourusername/your-project-name
-    cd your-project-name/backend
-    ```
+```bash
+git clone https://github.com/yourusername/your-project-name
+cd your-project-name/backend
+```
 
-    ### 2. Install Dependencies
+### 2. Install Dependencies
 
-    ```bash
-    uv sync --extra dev
-    ```
+```bash
+uv sync --extra dev
+```
 
-    ### 3. Environment Setup
+### 3. Environment Setup
 
-    ```bash
-    cp .env.example .env
-    # then edit .env to set your database creds, SECRET_KEY, etc.
-    ```
+```bash
+cp .env.example .env
+# then edit .env to set your database creds, SECRET_KEY, etc.
+```
 
-    !!! warning "SECRET_KEY"
-        Generate a secure key with `python -c "import secrets; print(secrets.token_urlsafe(64))"` and replace the default value in `.env`.
+!!! warning "SECRET_KEY"
+    Generate a secure key with `python -c "import secrets; print(secrets.token_urlsafe(64))"` and replace the default value in `.env`.
 
-    ### 4. Run the Server
+### 4. Run the Server
 
-    ```bash
-    uv run fastapi dev src/interfaces/main.py
-    ```
+```bash
+uv run fastapi dev src/interfaces/main.py
+```
+````
 
 === "Docker Compose"
 
-    ### Prerequisites
+````
+### Prerequisites
 
-    - [Docker](https://docs.docker.com/get-docker/) (20.10+)
-    - [Docker Compose](https://docs.docker.com/compose/install/) (v2+)
+- [Docker](https://docs.docker.com/get-docker/) (20.10+)
+- [Docker Compose](https://docs.docker.com/compose/install/) (v2+)
 
-    ### 1. Get the Template
+### 1. Get the Template
 
-    ```bash
-    git clone https://github.com/yourusername/your-project-name
-    cd your-project-name/backend
-    ```
+```bash
+git clone https://github.com/yourusername/your-project-name
+cd your-project-name/backend
+```
 
-    ### 2. Environment Setup
+### 2. Environment Setup
 
-    ```bash
-    cp .env.example .env
-    # then edit .env to set your DB password, SECRET_KEY, etc.
-    ```
+```bash
+cp .env.example .env
+# then edit .env to set your DB password, SECRET_KEY, etc.
+```
 
-    ### 3. Start Everything
+### 3. Start Everything
 
-    ```bash
-    docker compose up
-    ```
+```bash
+docker compose up
+```
 
-    This brings up:
+This brings up:
 
-    - **FastAPI app** on port 8000
-    - **PostgreSQL** database
-    - **Redis** for cache, rate limiting, and sessions
+- **FastAPI app** on port 8000
+- **PostgreSQL** database
+- **Redis** for cache, rate limiting, and sessions
+````
 
 ## Verify It's Running
 
@@ -161,12 +165,13 @@ curl http://localhost:8000/api/v1/users/me -b cookies.txt
 ## Alternative Setup Methods
 
 - **[Manual Installation](installation.md)** - Step-by-step setup details
+- **[Local Kubernetes Development](k8s-local.md)** - Run the full stack on `kind`, matching the production deployment target
 
 ## Need Help?
 
 - Join our **[Discord Community](../community.md)** - Get help from other developers
 - Report issues on **[GitHub](https://github.com/benavlabs/fastapi-boilerplate/issues)**
 
----
+______________________________________________________________________
 
 **Ready to dive deeper?** Continue with the [installation guide](installation.md) or jump to the [user guide](../user-guide/index.md).
