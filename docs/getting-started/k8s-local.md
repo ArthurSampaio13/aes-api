@@ -42,6 +42,23 @@ helm install aes-api deploy/helm/aes-api \
 This installs Postgres, LocalStack (emulating S3, SQS, Textract), the API, the
 Taskiq worker, and runs Alembic migrations as a pre-install Helm hook.
 
+**Known limitation:** the chart is currently a scaffold — every pod references an
+`{{ "{{ .Release.Name }}" }}-env` Secret for its environment variables, but nothing in
+the chart creates that Secret yet. Without it, pods fail with `CreateContainerConfigError`.
+Until this is wired up, create it manually before `helm install`, e.g.:
+
+```bash
+kubectl create secret generic aes-api-env \
+  --from-literal=POSTGRES_SERVER=aes-api-postgresql \
+  --from-literal=POSTGRES_USER=aes_app \
+  --from-literal=POSTGRES_PASSWORD=aes_app \
+  --from-literal=POSTGRES_DB=postgres \
+  --from-literal=AES_STORAGE_ENDPOINT_URL=http://aes-api-localstack:4566
+```
+
+Check `backend/src/infrastructure/config/settings.py` for the full list of settings the
+app reads and add any others your setup needs — this list is not exhaustive.
+
 ## 5. Iterate on code
 
 There is no live-reload in the cluster. After a code change:
