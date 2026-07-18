@@ -1,4 +1,6 @@
+import importlib
 import os
+import pkgutil
 import secrets
 import sys
 from pathlib import Path
@@ -11,7 +13,7 @@ import redis.asyncio as aioredis
 from faker import Faker
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from testcontainers.core.docker_client import DockerClient
@@ -28,6 +30,18 @@ from src.infrastructure.database.session import Base, async_session
 from src.interfaces.main import app
 from src.modules.tier.models import Tier
 from src.modules.user.models import User
+
+
+def _import_all_models(package_name: str) -> None:
+    package = importlib.import_module(package_name)
+    for _, module_name, _ in pkgutil.walk_packages(package.__path__, package.__name__ + "."):
+        try:
+            importlib.import_module(module_name)
+        except ImportError:
+            pass
+
+
+_import_all_models("src.modules")
 
 os.environ["SQLITE_URI"] = ":memory:"
 os.environ["SQLITE_ASYNC_PREFIX"] = "sqlite+aiosqlite:///"
@@ -130,9 +144,10 @@ async def rls_db(test_db, test_db_url):
     """A session running as a non-superuser role, so Postgres Row-Level Security actually applies.
 
     testcontainers' bootstrap role is a superuser, and superusers always bypass RLS regardless of FORCE ROW LEVEL
-    SECURITY. Tests that verify RLS policies must use this fixture instead of test_db/db_session. Uses its own NullPool
-    engine so the SET ROLE'd connection can never leak into test_db_engine's pool (a pooled connection left in a non-
-    superuser role broke that fixture's drop_all teardown).
+    SECURITY. Tests that verify RLS policies must use this fixture instead of test_db/db_session. Binds the session to a
+    single explicit AsyncConnection (not an engine/pool) so SET ROLE survives every commit in the test — a session bound
+    to a pool checks its connection back in after each commit, and with NullPool that meant every commit silently
+    dropped back to the superuser role on the next statement.
     """
     await test_db.execute(
         text(
@@ -147,10 +162,10 @@ async def rls_db(test_db, test_db_url):
     await test_db.commit()
 
     isolated_engine = create_async_engine(test_db_url, poolclass=NullPool)
-    isolated_session = async_sessionmaker(isolated_engine, class_=AsyncSession, expire_on_commit=False)
-    async with isolated_session() as session:
-        await session.execute(text("SET ROLE aes_rls_test_role"))
-        yield session
+    async with isolated_engine.connect() as connection:
+        await connection.execute(text("SET ROLE aes_rls_test_role"))
+        async with AsyncSession(bind=connection, expire_on_commit=False) as session:
+            yield session
     await isolated_engine.dispose()
 
 
