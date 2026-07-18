@@ -1,4 +1,3 @@
-import uuid as uuid_pkg
 from typing import Any
 
 from sqlalchemy import ForeignKey, Integer, String, Text
@@ -19,10 +18,6 @@ class EssayPrompt(Base, UUIDMixin, TimestampMixin):
     enunciado: Mapped[str] = mapped_column(Text, nullable=False)
     ano_escolar: Mapped[str] = mapped_column(String(2), nullable=False)
     genero_textual: Mapped[str] = mapped_column(String(80), nullable=False)
-    support_texts: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
     rubric_id: Mapped[int] = mapped_column(Integer, ForeignKey("rubrics.id"), nullable=False)
     prompt_template_id: Mapped[int] = mapped_column(Integer, ForeignKey("prompt_templates.id"), nullable=False)
-
-    def __post_init__(self) -> None:
-        if self.uuid is None:
-            self.uuid = uuid_pkg.uuid4()
+    support_texts: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default_factory=list)
