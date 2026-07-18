@@ -52,12 +52,14 @@ def _create_rabbitmq_broker() -> AsyncBroker:
     return broker
 
 
+def _queue_name_from_url(queue_url: str) -> str:
+    return queue_url.rstrip("/").split("/")[-1] if queue_url else ""
+
+
 def _create_sqs_broker() -> AsyncBroker:
     """Create SQS-based broker for taskiq (LocalStack locally, real SQS in production)."""
-    queue_url = settings.TASKIQ_SQS_QUEUE_URL
-    queue_name = queue_url.split("/")[-1] if queue_url else ""
     return SQSBroker(
-        sqs_queue_name=queue_name,
+        sqs_queue_name=_queue_name_from_url(settings.TASKIQ_SQS_QUEUE_URL),
         endpoint_url=settings.TASKIQ_SQS_ENDPOINT_URL or None,
         region_name=settings.TASKIQ_SQS_REGION,
     )

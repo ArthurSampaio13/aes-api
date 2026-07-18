@@ -11,6 +11,18 @@ def test_sqs_is_a_supported_broker_type():
     assert TaskiqBrokerType.SQS == "sqs"
 
 
+def test_queue_name_from_url_strips_trailing_slash():
+    assert brokers_module._queue_name_from_url("http://localhost:4566/000000000000/correction-jobs/") == "correction-jobs"
+
+
+def test_queue_name_from_url_handles_no_trailing_slash():
+    assert brokers_module._queue_name_from_url("http://localhost:4566/000000000000/correction-jobs") == "correction-jobs"
+
+
+def test_queue_name_from_url_handles_empty_string():
+    assert brokers_module._queue_name_from_url("") == ""
+
+
 def test_create_default_broker_dispatches_to_sqs_factory(monkeypatch):
     monkeypatch.setenv("TASKIQ_BROKER_TYPE", "sqs")
     monkeypatch.setenv("TASKIQ_SQS_QUEUE_URL", "http://localhost:4566/000000000000/correction-jobs")
