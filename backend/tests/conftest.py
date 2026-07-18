@@ -27,6 +27,7 @@ from src.infrastructure.auth.session.schemas import CSRFToken, SessionData
 from src.infrastructure.auth.utils import get_password_hash
 from src.infrastructure.config.settings import Settings, get_settings
 from src.infrastructure.database.session import Base, async_session
+from src.infrastructure.taskiq.brokers import default_broker
 from src.interfaces.main import app
 from src.modules.tier.models import Tier
 from src.modules.user.models import User
@@ -461,3 +462,13 @@ def mock_oauth_settings(monkeypatch):
     monkeypatch.setenv("OAUTH_GOOGLE_CLIENT_SECRET", "mock-google-client-secret")
     monkeypatch.setenv("OAUTH_GITHUB_CLIENT_ID", "mock-github-client-id")
     monkeypatch.setenv("OAUTH_GITHUB_CLIENT_SECRET", "mock-github-client-secret")
+
+
+@pytest.fixture(autouse=True)
+def noop_taskiq_broker(monkeypatch):
+    """Prevent .kiq() from requiring a live broker connection or running the task body."""
+
+    async def noop_kick(message):
+        return None
+
+    monkeypatch.setattr(default_broker, "kick", noop_kick)

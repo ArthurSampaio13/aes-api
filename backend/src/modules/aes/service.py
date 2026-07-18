@@ -9,6 +9,7 @@ from .models.submission import Batch, Submission
 from .schemas.essay_prompt import EssayPromptCreate, EssayPromptRead
 from .schemas.rubric import RubricCreate, RubricRead
 from .schemas.submission import BatchSubmitRequest
+from .worker import run_correction_job
 
 
 class AesService:
@@ -69,4 +70,10 @@ class AesService:
             job_ids.append(job.uuid)
 
         await db.commit()
+
+        for job_id in job_ids:
+            await run_correction_job.kiq(  # type: ignore[call-overload]
+                job_id=str(job_id), prompt_text="Corrija: {essay_text}", prompt_version=1, rubric_version=1
+            )
+
         return batch.uuid, job_ids
