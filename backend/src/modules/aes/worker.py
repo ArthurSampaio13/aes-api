@@ -39,6 +39,7 @@ async def process_correction_job(
 
     job.status = "processing"
     await db.commit()
+    await set_tenant_context(db, municipio_id, is_superuser=False)
 
     try:
         essay_text = submission.raw_text
@@ -47,6 +48,7 @@ async def process_correction_job(
             essay_text = ocr_result.text
             submission.raw_text = essay_text
             await db.commit()
+            await set_tenant_context(db, municipio_id, is_superuser=False)
         assert essay_text is not None
 
         for attempt_number in range(1, job.max_attempts + 1):
@@ -100,6 +102,7 @@ async def process_correction_job(
         await db.commit()
     except Exception:
         await db.rollback()
+        await set_tenant_context(db, municipio_id, is_superuser=False)
         job = (await db.execute(select(CorrectionJob).where(CorrectionJob.uuid == job_id))).scalar_one()
         job.status = "failed"
         await db.commit()

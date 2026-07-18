@@ -13,7 +13,7 @@ import redis.asyncio as aioredis
 from faker import Faker
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from testcontainers.core.docker_client import DockerClient
@@ -211,6 +211,39 @@ async def rls_db(test_db, test_db_url):
         async with AsyncSession(bind=connection, expire_on_commit=False) as session:
             yield session
     await isolated_engine.dispose()
+
+
+@pytest_asyncio.fixture(scope="function")
+async def rls_db_real_commits(test_db, test_db_url):
+    """A non-superuser session bound to its own engine, so session.commit() issues a real Postgres COMMIT.
+
+    rls_db binds to a single pre-opened AsyncConnection to keep SET ROLE stable across commits, but that means its
+    commit() calls never actually end the underlying transaction. That's fine for testing RLS policies themselves, but
+    it can't prove behavior that depends on a real commit boundary (e.g. a transaction-scoped GUC being reset by
+    COMMIT). This fixture connects directly as aes_rls_test_role via its own credentials on a NullPool engine, matching
+    how the taskiq worker's connection actually behaves in production: connection-per-transaction, real commits.
+    """
+    await test_db.execute(
+        text(
+            "DO $$ BEGIN "
+            "CREATE ROLE aes_rls_test_role NOSUPERUSER NOBYPASSRLS LOGIN PASSWORD 'aes_rls_test_role'; "
+            "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+        )
+    )
+    await test_db.execute(text("GRANT USAGE ON SCHEMA public TO aes_rls_test_role"))
+    await test_db.execute(text("GRANT ALL ON ALL TABLES IN SCHEMA public TO aes_rls_test_role"))
+    await test_db.execute(text("GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO aes_rls_test_role"))
+    await test_db.commit()
+
+    scheme, rest = test_db_url.split("://", 1)
+    _, host_part = rest.split("@", 1)
+    role_url = f"{scheme}://aes_rls_test_role:aes_rls_test_role@{host_part}"
+
+    role_engine = create_async_engine(role_url, poolclass=NullPool)
+    role_session_factory = async_sessionmaker(bind=role_engine, class_=AsyncSession, expire_on_commit=False)
+    async with role_session_factory() as session:
+        yield session
+    await role_engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="function")
