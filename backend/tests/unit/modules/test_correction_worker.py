@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 from sqlalchemy import select
 
@@ -13,9 +15,8 @@ from src.modules.aes.worker import process_correction_job
 from src.modules.municipio.models import Municipio
 
 
-@pytest.mark.asyncio
-async def test_worker_persists_attempt_and_result_on_success(db_session, test_user):
-    municipio = Municipio(nome="Worker Test")
+async def _build_pending_job(db_session, test_user, nome: str) -> tuple[Municipio, CorrectionJob]:
+    municipio = Municipio(nome=nome)
     db_session.add(municipio)
     await db_session.commit()
 
@@ -52,11 +53,18 @@ async def test_worker_persists_attempt_and_result_on_success(db_session, test_us
     )
     db_session.add(job)
     await db_session.commit()
+    return municipio, job
+
+
+@pytest.mark.asyncio
+async def test_worker_persists_attempt_and_result_on_success(db_session, test_user):
+    municipio, job = await _build_pending_job(db_session, test_user, "Worker Test")
 
     jobs_done_before = CORRECTION_JOBS_TOTAL.labels(status="done", provider="mock", model="mock-v1")._value.get()
 
     await process_correction_job(
         job_id=str(job.uuid),
+        municipio_id=municipio.id,
         db=db_session,
         provider=MockProvider(),
         ocr_provider=MockOCRProvider(),
@@ -81,3 +89,57 @@ async def test_worker_persists_attempt_and_result_on_success(db_session, test_us
 
     await db_session.refresh(job)
     assert job.status == "done"
+
+
+@pytest.mark.asyncio
+async def test_worker_redelivery_of_done_job_is_a_no_op(db_session, test_user):
+    municipio, job = await _build_pending_job(db_session, test_user, "Redelivery Test")
+
+    for _ in range(2):
+        await process_correction_job(
+            job_id=str(job.uuid),
+            municipio_id=municipio.id,
+            db=db_session,
+            provider=MockProvider(),
+            ocr_provider=MockOCRProvider(),
+            prompt_text="Corrija: {essay_text}",
+            prompt_version=1,
+            rubric_version=1,
+        )
+
+    attempts_query = select(CorrectionAttempt).where(CorrectionAttempt.correction_job_id == job.uuid)
+    attempts = (await db_session.execute(attempts_query)).scalars().all()
+    assert len(attempts) == 1
+
+    results_query = select(CorrectionResult).where(CorrectionResult.correction_job_id == job.uuid)
+    results = (await db_session.execute(results_query)).scalars().all()
+    assert len(results) == 1
+
+    await db_session.refresh(job)
+    assert job.status == "done"
+
+
+class _RaisingProvider:
+    async def correct(self, essay_text: str, prompt: str, params: dict[str, Any]):
+        raise RuntimeError("provider exploded")
+
+
+@pytest.mark.asyncio
+async def test_worker_marks_job_failed_when_provider_raises(db_session, test_user):
+    municipio, job = await _build_pending_job(db_session, test_user, "Failure Boundary Test")
+    job_uuid = job.uuid
+
+    with pytest.raises(RuntimeError, match="provider exploded"):
+        await process_correction_job(
+            job_id=str(job_uuid),
+            municipio_id=municipio.id,
+            db=db_session,
+            provider=_RaisingProvider(),
+            ocr_provider=MockOCRProvider(),
+            prompt_text="Corrija: {essay_text}",
+            prompt_version=1,
+            rubric_version=1,
+        )
+
+    refetched = (await db_session.execute(select(CorrectionJob).where(CorrectionJob.uuid == job_uuid))).scalar_one()
+    assert refetched.status == "failed"

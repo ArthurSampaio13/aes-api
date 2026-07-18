@@ -49,6 +49,7 @@ async def test_job_status_then_results_after_worker_runs(auth_client, db_session
 
     await process_correction_job(
         job_id=job_id,
+        municipio_id=municipio.id,
         db=db_session,
         provider=MockProvider(),
         ocr_provider=MockOCRProvider(),
