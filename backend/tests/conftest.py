@@ -144,7 +144,7 @@ async def test_db_engine(test_db_url):
             """
             )
         )
-        for table in ("batches", "submissions"):
+        for table in ("batches", "submissions", "correction_jobs", "correction_attempts", "correction_results"):
             await conn.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
             await conn.execute(text(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY"))
             await conn.execute(
