@@ -1,0 +1,33 @@
+from typing import Any
+
+from fastapi import APIRouter
+
+from ...infrastructure.auth.http_exceptions import HTTPException
+from ...infrastructure.dependencies import TenantSessionDep
+from ..common.utils.error_handler import handle_exception
+from .dependencies import AesServiceDep
+from .schemas.rubric import RubricCreate, RubricRead
+
+router = APIRouter(tags=["AES"])
+
+
+@router.post("/rubrics", status_code=201, response_model=RubricRead)
+async def create_rubric(data: RubricCreate, db: TenantSessionDep, aes_service: AesServiceDep) -> dict[str, Any]:
+    try:
+        return await aes_service.create_rubric(data, db)
+    except Exception as e:
+        http_exception = handle_exception(e)
+        if http_exception:
+            raise http_exception
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
+
+@router.get("/rubrics/{rubric_id}", response_model=RubricRead)
+async def get_rubric(rubric_id: int, db: TenantSessionDep, aes_service: AesServiceDep) -> dict[str, Any]:
+    try:
+        return await aes_service.get_rubric(rubric_id, db)
+    except Exception as e:
+        http_exception = handle_exception(e)
+        if http_exception:
+            raise http_exception
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
