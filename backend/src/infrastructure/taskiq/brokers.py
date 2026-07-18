@@ -2,6 +2,7 @@
 
 from taskiq import AsyncBroker
 from taskiq_aio_pika import AioPikaBroker
+from taskiq_aio_sqs import SQSBroker
 from taskiq_redis import ListQueueBroker, RedisAsyncResultBackend
 
 from ..config import TaskiqBrokerType, get_settings
@@ -13,12 +14,14 @@ def create_default_broker() -> AsyncBroker:
     """Create email broker for taskiq based on configured broker type.
 
     Returns:
-        Configured AsyncBroker instance for email tasks (Redis or RabbitMQ)
+        Configured AsyncBroker instance for email tasks (Redis, RabbitMQ, or SQS)
     """
     if settings.TASKIQ_BROKER_TYPE == TaskiqBrokerType.REDIS.value:
         return _create_redis_broker()
     elif settings.TASKIQ_BROKER_TYPE == TaskiqBrokerType.RABBITMQ.value:
         return _create_rabbitmq_broker()
+    elif settings.TASKIQ_BROKER_TYPE == TaskiqBrokerType.SQS.value:
+        return _create_sqs_broker()
     else:
         raise ValueError(f"Unsupported broker type: {settings.TASKIQ_BROKER_TYPE}")
 
@@ -47,6 +50,17 @@ def _create_rabbitmq_broker() -> AsyncBroker:
     broker = AioPikaBroker(url=rabbitmq_url, queue_name="default")
 
     return broker
+
+
+def _create_sqs_broker() -> AsyncBroker:
+    """Create SQS-based broker for taskiq (LocalStack locally, real SQS in production)."""
+    queue_url = settings.TASKIQ_SQS_QUEUE_URL
+    queue_name = queue_url.split("/")[-1] if queue_url else ""
+    return SQSBroker(
+        sqs_queue_name=queue_name,
+        endpoint_url=settings.TASKIQ_SQS_ENDPOINT_URL or None,
+        region_name=settings.TASKIQ_SQS_REGION,
+    )
 
 
 default_broker = create_default_broker()
