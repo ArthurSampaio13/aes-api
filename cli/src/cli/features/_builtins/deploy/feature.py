@@ -1,14 +1,16 @@
-"""The deploy feature — generate Dockerfile-friendly compose files.
+"""The deploy feature — generate Dockerfile-friendly compose files, or a Helm chart.
 
-Three modes are supported in v1:
+Four modes are supported:
 
 - ``local``: hot-reload dev stack (mounts source, exposes port 8000)
 - ``prod``: production stack with multiple workers, ports exposed directly
 - ``nginx``: ``prod`` plus an nginx reverse proxy on port 80
+- ``k8s``: a Helm chart (API/worker Deployments, Postgres/LocalStack as chart
+  dependencies) for local ``kind`` clusters or real Kubernetes
 
-All modes target the existing multi-stage ``backend/Dockerfile`` —
-no per-mode Dockerfile is generated. Modes only differ in the
-compose file (and an optional nginx config).
+The compose modes target the existing multi-stage ``backend/Dockerfile`` —
+no per-mode Dockerfile is generated. ``k8s`` mode generates a Helm chart
+instead of a compose file.
 """
 
 from __future__ import annotations
@@ -29,7 +31,7 @@ class DeployFeature(Feature):
         return FeatureManifest(
             name="deploy",
             version="1.0",
-            summary="Generate a docker-compose.yml for local, prod, or nginx-fronted deployments.",
+            summary="Generate a docker-compose.yml (local/prod/nginx) or a Helm chart (k8s).",
         )
 
     def plan(self, params: dict[str, Any], project: ProjectContext) -> FeaturePlan:
