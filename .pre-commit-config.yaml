@@ -1,14 +1,6 @@
 default_language_version:
-  # Pinned to an exact minor version (python3.11) used to fail here with
-  # "failed to find interpreter" on machines that don't have that exact
-  # binary on PATH (this repo's own venv runs 3.13). `python3` lets each
-  # hook's virtualenv bootstrap off whatever interpreter is actually present.
   python: python3
 
-# Hooks below have no `stages:` of their own, so without this they'd run at
-# every installed hook type — including pre-push, where a formatter rewriting
-# a file blocks the push. Formatting/linting belongs at commit time only; the
-# local hooks at the bottom of this file opt into pre-push/commit-msg explicitly.
 default_stages: [pre-commit]
 
 repos:

@@ -51,22 +51,10 @@ dev = [
 ]
 
 [tool.deptry]
-# The "dev" group is tooling (mypy, ruff, pytest, taskipy, deptry itself...), never imported by src/.
 optional_dependencies_dev_groups = ["dev"]
 
 [tool.deptry.per_rule_ignores]
-# Loaded by SQLAlchemy from the DATABASE_URL driver prefix (e.g. "postgresql+asyncpg://"),
-# by Alembic's CLI (outside src/), or by another direct dependency's internals — never
-# `import`-ed by name in src/, so deptry can't see the usage from source scanning alone.
-DEP002 = [
-    "aiosqlite",   # sqlite+aiosqlite:// driver, used in tests via SQLITE_ASYNC_PREFIX
-    "alembic",     # invoked as a CLI (`alembic upgrade head`), lives in migrations/ outside src/
-    "asyncpg",     # postgresql+asyncpg:// driver
-    "faker",       # used by tests/conftest.py, outside src/
-    "greenlet",    # required by SQLAlchemy's async bridge, never imported directly
-    "itsdangerous",  # required by starlette.middleware.sessions.SessionMiddleware internally
-    "jinja2",      # required by fastapi[standard]'s HTML templating support
-]
+DEP002 = ["aiosqlite", "alembic", "asyncpg", "faker", "greenlet", "itsdangerous", "jinja2"]
 
 [tool.taskipy.tasks]
 test = "pytest"
