@@ -9,6 +9,7 @@ from taskiq import TaskiqDepends
 
 from ...infrastructure.taskiq.brokers import default_broker
 from ...infrastructure.taskiq.deps import get_db_session
+from .metrics import CORRECTION_JOBS_TOTAL, CORRECTION_LATENCY_MS, CORRECTION_TOKENS
 from .models.correction import CorrectionAttempt, CorrectionJob, CorrectionResult
 from .models.submission import Submission
 from .providers.base import CorrectionProvider
@@ -66,6 +67,10 @@ async def process_correction_job(
         db.add(attempt)
         await db.flush()
 
+        CORRECTION_TOKENS.labels(provider=job.provider, model=job.model, direction="in").observe(response.tokens_in)
+        CORRECTION_TOKENS.labels(provider=job.provider, model=job.model, direction="out").observe(response.tokens_out)
+        CORRECTION_LATENCY_MS.labels(provider=job.provider, model=job.model).observe(latency_ms)
+
         if response.structured is not None:
             result = CorrectionResult(
                 municipio_id=job.municipio_id,
@@ -76,10 +81,12 @@ async def process_correction_job(
             )
             db.add(result)
             job.status = "done"
+            CORRECTION_JOBS_TOTAL.labels(status=job.status, provider=job.provider, model=job.model).inc()
             await db.commit()
             return
 
     job.status = "failed"
+    CORRECTION_JOBS_TOTAL.labels(status=job.status, provider=job.provider, model=job.model).inc()
     await db.commit()
 
 

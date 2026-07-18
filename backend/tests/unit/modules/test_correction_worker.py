@@ -1,6 +1,7 @@
 import pytest
 from sqlalchemy import select
 
+from src.modules.aes.metrics import CORRECTION_JOBS_TOTAL
 from src.modules.aes.models.correction import CorrectionAttempt, CorrectionJob, CorrectionResult
 from src.modules.aes.models.essay_prompt import EssayPrompt
 from src.modules.aes.models.rubric import PromptTemplate, Rubric
@@ -52,6 +53,8 @@ async def test_worker_persists_attempt_and_result_on_success(db_session, test_us
     db_session.add(job)
     await db_session.commit()
 
+    jobs_done_before = CORRECTION_JOBS_TOTAL.labels(status="done", provider="mock", model="mock-v1")._value.get()
+
     await process_correction_job(
         job_id=str(job.uuid),
         db=db_session,
@@ -61,6 +64,9 @@ async def test_worker_persists_attempt_and_result_on_success(db_session, test_us
         prompt_version=1,
         rubric_version=1,
     )
+
+    jobs_done_after = CORRECTION_JOBS_TOTAL.labels(status="done", provider="mock", model="mock-v1")._value.get()
+    assert jobs_done_after == jobs_done_before + 1
 
     attempts_query = select(CorrectionAttempt).where(CorrectionAttempt.correction_job_id == job.uuid)
     attempts = (await db_session.execute(attempts_query)).scalars().all()
