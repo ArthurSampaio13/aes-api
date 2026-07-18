@@ -12,7 +12,6 @@ O alvo de produção real desta implementação é Kubernetes (decisão do autor
 **Fora de escopo deste ciclo** (documentar como trabalho futuro na seção 5 do TCC, não implementar agora):
 
 - Autoscaling real de workers e testes de carga com 10 mil redações.
-- Multi-tenancy por município.
 - Deploy em cluster gerenciado (EKS) fora do `kind` local.
 - Métricas de concordância com avaliadores humanos (QWK, kappa) — dependem de corpus anotado, ausente nesta etapa (TCC 4.3).
 
@@ -20,15 +19,27 @@ O alvo de produção real desta implementação é Kubernetes (decisão do autor
 
 Módulos novos em `backend/src/modules/`, seguindo a convenção vertical-slice já usada por `user`, `tier`, `api_keys`.
 
-### 2.1 Entidades
+### 2.1 Multi-tenancy por município
 
-- **`EssayPrompt`** — proposta de redação: enunciado, ano escolar (6º–9º), gênero textual, `support_texts` (lista de textos de apoio/motivadores anexados pelo professor — extensão além do que o TCC descreve, mas alinhada à literatura citada nele sobre uso de referências aplicáveis), referência à `Rubric` ativa.
-- **`Rubric`** (versionada, imutável após criação) — os 5 critérios fixos do `AGENTS.md`: `adequacao_tema`, `estrutura_textual`, `coesao_coerencia`, `adequacao_ling`, `vocabulario`. Cada critério tem descritor, escala de pontuação e peso. Qualquer alteração cria nova versão (TCC 3.5, 3.9).
-- **`PromptTemplate`** (versionado, imutável) — template de instrução enviado ao LLM; monta dinamicamente com redação do aluno, proposta, textos de apoio, rubrica ativa e formato de saída esperado.
-- **`Batch`** — lote de submissão.
-- **`Submission`** — redação individual (texto ou imagem) dentro de um lote; referência ao objeto original no storage S3-compatível.
-- **`CorrectionJob`** — unidade de processamento assíncrono por submissão: estado (`pending`/`processing`/`done`/`failed`), condição experimental (provedor + modelo + versão de prompt + versão de rubrica + parâmetros de inferência).
-- **`CorrectionAttempt`** — uma linha por tentativa de correção de um `CorrectionJob` (1:N). É o registro de execução exigido pelo TCC 3.7/3.9:
+A plataforma é compartilhada entre municípios (tenants), com isolamento de dados garantido no banco, não só por convenção na aplicação:
+
+- **`Municipio`** (novo) — `id`, `nome`, `monthly_token_budget` (opcional, teto de gasto mensal).
+- `User` (módulo já existente) ganha `municipio_id` — um professor pertence a exatamente um município. `is_superuser` (já existente) é o único papel com acesso cross-tenant, para operação da plataforma.
+- **Toda tabela do domínio AES** (`EssayPrompt`, `Batch`, `Submission`, `CorrectionJob`, `CorrectionAttempt`, `CorrectionResult`) carrega sua própria coluna `municipio_id`, preenchida automaticamente a partir do registro pai na criação (ex.: `Submission` herda o `municipio_id` do `Batch`). `Rubric` e `PromptTemplate` têm `municipio_id` **anulável**: `NULL` = padrão da plataforma (ex. rubrica BNCC-base, compartilhada), preenchido = customização própria do município.
+- **Row-Level Security (RLS) do PostgreSQL** em cada uma dessas tabelas — não apenas filtro na aplicação. Política: `municipio_id = current_setting('app.municipio_id')::int OR current_setting('app.is_superuser', true)::boolean`. Uma dependência na camada de requisição (estende o padrão de auth já existente em `infrastructure/auth`) executa `SET LOCAL app.municipio_id = ...` a partir do usuário autenticado — nunca de um header ou parâmetro controlado pelo cliente — com escopo restrito à transação da requisição. Isso garante isolamento mesmo se uma query da aplicação esquecer o filtro.
+- Controle de custo: `Municipio.monthly_token_budget` é checado antes de enfileirar um novo job, somando `tokens_in+tokens_out` do período atual (join `CorrectionAttempt → CorrectionJob → Batch`). Acima do limite, a submissão é rejeitada com erro claro — não é um sistema de billing completo, só um teto de gasto.
+- Teste dedicado (module de tenancy): tenant A tenta ler dado de tenant B via ORM sem nenhum filtro explícito — deve retornar zero linhas. É a prova de que a garantia de isolamento funciona no banco, não apenas no comportamento esperado da aplicação.
+- Alternativa considerada e descartada: schema ou banco separado por município. Multiplicaria migração/Helm por tenant sem ganhar isolamento além do que RLS já garante.
+
+### 2.2 Entidades
+
+- **`EssayPrompt`** — proposta de redação: enunciado, ano escolar (6º–9º), gênero textual, `support_texts` (lista de textos de apoio/motivadores anexados pelo professor — extensão além do que o TCC descreve, mas alinhada à literatura citada nele sobre uso de referências aplicáveis), referência à `Rubric` ativa. Escopada por `municipio_id` (RLS).
+- **`Rubric`** (versionada, imutável após criação) — os 5 critérios fixos do `AGENTS.md`: `adequacao_tema`, `estrutura_textual`, `coesao_coerencia`, `adequacao_ling`, `vocabulario`. Cada critério tem descritor, escala de pontuação e peso. Qualquer alteração cria nova versão (TCC 3.5, 3.9). `municipio_id` anulável (ver 2.1).
+- **`PromptTemplate`** (versionado, imutável) — template de instrução enviado ao LLM; monta dinamicamente com redação do aluno, proposta, textos de apoio, rubrica ativa e formato de saída esperado. `municipio_id` anulável (ver 2.1).
+- **`Batch`** — lote de submissão. Escopado por `municipio_id` (RLS).
+- **`Submission`** — redação individual (texto ou imagem) dentro de um lote; referência ao objeto original no storage S3-compatível. Escopada por `municipio_id` (RLS).
+- **`CorrectionJob`** — unidade de processamento assíncrono por submissão: estado (`pending`/`processing`/`done`/`failed`), condição experimental (provedor + modelo + versão de prompt + versão de rubrica + parâmetros de inferência). Escopado por `municipio_id` (RLS).
+- **`CorrectionAttempt`** — uma linha por tentativa de correção de um `CorrectionJob` (1:N). Escopada por `municipio_id` (RLS). É o registro de execução exigido pelo TCC 3.7/3.9:
 
   | Campo | Descrição |
   |---|---|
@@ -43,9 +54,9 @@ Módulos novos em `backend/src/modules/`, seguindo a convenção vertical-slice 
   | `error_message` | preenchido em falha |
   | `created_at` | timestamp |
 
-- **`CorrectionResult`** — nota por critério, justificativa vinculada ao texto e feedback acionável; referencia o `CorrectionAttempt` que efetivamente originou o resultado. Isso permite reconstruir, para qualquer correção, a cadeia completa de tentativas (inclusive as que falharam) até o resultado aceito.
+- **`CorrectionResult`** — nota por critério, justificativa vinculada ao texto e feedback acionável; referencia o `CorrectionAttempt` que efetivamente originou o resultado. Escopado por `municipio_id` (RLS). Isso permite reconstruir, para qualquer correção, a cadeia completa de tentativas (inclusive as que falharam) até o resultado aceito.
 
-### 2.2 API
+### 2.3 API
 
 ```
 POST   /api/v1/essay-prompts          # professor cria proposta + rubrica + textos de apoio
@@ -85,7 +96,7 @@ Worker Taskiq → carrega job
 
 ## 4. Observabilidade
 
-- **Logs estruturados** — reaproveita `infrastructure/logging` já existente; cada log de job carrega `job_id`, `submission_id`, `provider`, `model`, `prompt_version`, `rubric_version` como campos estruturados.
+- **Logs estruturados** — reaproveita `infrastructure/logging` já existente; cada log de job carrega `job_id`, `submission_id`, `municipio_id`, `provider`, `model`, `prompt_version`, `rubric_version` como campos estruturados.
 - **Métricas Prometheus** (`/metrics` via `prometheus-fastapi-instrumentator`): contagem de jobs por status/provedor/modelo, histograma de latência, contagem de erros/retries por provedor, falhas de OCR.
 - **Métricas de uso de LLM**: histograma de `tokens_in`/`tokens_out` por `provider`+`model`, agregado a partir da tabela `CorrectionAttempt` (sem duplicar dado) — permite comparar custo/consumo entre condições experimentais, alinhado à justificativa de controle de custo do próprio TCC (3.6). Tabela de preço por modelo (config estática) converte tokens em custo estimado.
 - Subchart opcional `prometheus` + `grafana` (comunidade, grátis) no Helm chart local para visualização — não obrigatório para rodar testes.
@@ -118,8 +129,9 @@ Worker Taskiq → carrega job
 
 ## 8. Segurança e privacidade (LGPD)
 
+- **Isolamento entre municípios garantido por Row-Level Security no PostgreSQL** (ver 2.1), não apenas por filtro na aplicação — vazamento de dado entre tenants exigiria contornar uma política do próprio banco, não só um bug de query.
 - Corpus de teste sintético ou anonimizado — nunca dado real de aluno em fixtures.
-- Logs nunca contêm o texto da redação nem PII — apenas metadados (`job_id`, `provider`, tokens, timestamps).
+- Logs nunca contêm o texto da redação nem PII — apenas metadados (`job_id`, `municipio_id`, `provider`, tokens, timestamps).
 - Segredos (chaves Bedrock/OpenRouter, token LocalStack) via K8s Secret; nunca em texto plano no chart ou no repositório.
 - Toda resposta de correção é explicitamente assistiva (`requires_teacher_review: true`), nunca apresentada como nota final autônoma.
 
