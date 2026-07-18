@@ -117,7 +117,7 @@ Worker Taskiq → carrega job
 - Cluster `kind` de desenvolvimento.
 - Helm chart do projeto (`deploy/helm/aes-api/`):
   - `api` (Deployment + Service), `worker` (Deployment).
-  - `postgres` (chart community, grátis).
+  - `postgres` (chart community, grátis) — a migration baseline (Job do Helm) provisiona um papel de aplicação `NOSUPERUSER NOBYPASSRLS` com os `GRANT`s necessários; a API e o worker conectam com esse papel, nunca com o superusuário do subchart (ver seção 8, RLS vira no-op sob superusuário).
   - `localstack` (chart oficial) — emula S3, SQS e Textract.
   - `prometheus` + `grafana` (subchart opcional).
 - **LocalStack exige token de auth mesmo no free tier** desde que a Community Edition standalone foi descontinuada (mar/2026). Como projeto acadêmico, usar o plano gratuito para estudantes (verificado via GitHub). Passo de setup explícito na documentação: criar conta, gerar token, colocar em K8s Secret.
@@ -128,6 +128,7 @@ Worker Taskiq → carrega job
 ## 7. Testes
 
 - **Unit tests**: sempre `MockProvider`/`MockOCRProvider`, nenhuma dependência de rede ou chave real.
+- **Testes de RLS**: usam uma fixture dedicada (`rls_db`) que roda como um papel `NOSUPERUSER NOBYPASSRLS`, nunca a fixture padrão de sessão de teste (que usa o papel superusuário do testcontainers, sob o qual RLS é ignorado).
 - **API tests**: criação de essay-prompt, submissão de lote, consulta de job/results, casos de erro de validação.
 - **Worker tests**: idempotência (reprocessar o mesmo job não duplica resultado), retry até o limite, cada tentativa gera um `CorrectionAttempt`.
 - **Migration tests**: `alembic upgrade head` limpo a partir de zero, checado em CI.
@@ -136,6 +137,7 @@ Worker Taskiq → carrega job
 ## 8. Segurança e privacidade (LGPD)
 
 - **Isolamento entre municípios garantido por Row-Level Security no PostgreSQL** (ver 2.1), não apenas por filtro na aplicação — vazamento de dado entre tenants exigiria contornar uma política do próprio banco, não só um bug de query.
+- **O papel de conexão do Postgres usado pela aplicação (e pelos testes de RLS) nunca pode ser superusuário nem ter `BYPASSRLS`.** Descoberto durante a implementação: papéis superusuário do Postgres ignoram RLS incondicionalmente, mesmo com `FORCE ROW LEVEL SECURITY` — `FORCE` só afeta o dono da tabela quando esse dono *não* é superusuário. O papel padrão criado pelas imagens oficiais do Postgres (`postgres`, e o `test` do testcontainers) É superusuário; usar esse papel diretamente tornaria a garantia de isolamento um no-op silencioso. O papel de runtime da aplicação (local, CI e produção) deve ser `NOSUPERUSER NOBYPASSRLS`, com `GRANT`s explícitos nas tabelas/sequências necessárias — o Helm chart (seção 6) deve provisionar esse papel, não usar o superusuário do subchart `postgresql`.
 - Corpus de teste sintético ou anonimizado — nunca dado real de aluno em fixtures.
 - Logs nunca contêm o texto da redação nem PII — apenas metadados (`job_id`, `municipio_id`, `provider`, tokens, timestamps).
 - Segredos (chaves Bedrock/OpenRouter, token LocalStack) via K8s Secret; nunca em texto plano no chart ou no repositório.
