@@ -106,16 +106,24 @@ async def test_db_engine(test_db_url):
             await conn.execute(
                 text(
                     f"""
-                CREATE POLICY tenant_isolation ON {table}
+                CREATE POLICY tenant_owns ON {table}
                 USING (
                     municipio_id = NULLIF(current_setting('app.municipio_id', true), '')::int
-                    OR municipio_id IS NULL
                     OR current_setting('app.is_superuser', true)::boolean
                 )
                 WITH CHECK (
                     municipio_id = NULLIF(current_setting('app.municipio_id', true), '')::int
                     OR current_setting('app.is_superuser', true)::boolean
                 )
+            """
+                )
+            )
+            await conn.execute(
+                text(
+                    f"""
+                CREATE POLICY platform_default_readonly ON {table}
+                FOR SELECT
+                USING (municipio_id IS NULL)
             """
                 )
             )

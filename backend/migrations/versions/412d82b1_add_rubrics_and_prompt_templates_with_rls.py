@@ -57,10 +57,9 @@ def upgrade() -> None:
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
         op.execute(
             f"""
-            CREATE POLICY tenant_isolation ON {table}
+            CREATE POLICY tenant_owns ON {table}
             USING (
                 municipio_id = NULLIF(current_setting('app.municipio_id', true), '')::int
-                OR municipio_id IS NULL
                 OR current_setting('app.is_superuser', true)::boolean
             )
             WITH CHECK (
@@ -69,12 +68,20 @@ def upgrade() -> None:
             )
         """
         )
+        op.execute(
+            f"""
+            CREATE POLICY platform_default_readonly ON {table}
+            FOR SELECT
+            USING (municipio_id IS NULL)
+        """
+        )
 
 
 def downgrade() -> None:
     """Downgrade schema."""
     for table in ("rubrics", "prompt_templates"):
-        op.execute(f"DROP POLICY IF EXISTS tenant_isolation ON {table}")
+        op.execute(f"DROP POLICY IF EXISTS platform_default_readonly ON {table}")
+        op.execute(f"DROP POLICY IF EXISTS tenant_owns ON {table}")
     op.drop_index(op.f("ix_prompt_templates_municipio_id"), table_name="prompt_templates")
     op.drop_table("prompt_templates")
     op.drop_index(op.f("ix_rubrics_municipio_id"), table_name="rubrics")
