@@ -11,6 +11,7 @@ license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "aioboto3>=13.2.0",
     "aiomcache>=0.8.2",
     "aiosqlite>=0.21.0",
     "alembic>=1.16.4",
@@ -100,6 +101,10 @@ warn_no_return = true
 warn_unreachable = true
 namespace_packages = true
 explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = "aioboto3"
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "aiomcache"

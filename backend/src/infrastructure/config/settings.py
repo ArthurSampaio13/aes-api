@@ -58,8 +58,8 @@ class DatabaseSettings(BaseSettings):
     def DATABASE_URL(self) -> str:
         """Get the full database URL.
 
-        Checks for DATABASE_URL environment variable first (production pattern),
-        then falls back to constructing from individual components (development pattern).
+        Checks for DATABASE_URL environment variable first (production pattern), then falls back to constructing from
+        individual components (development pattern).
         """
         direct_url = config("DATABASE_URL", default=None)
         if direct_url:
@@ -362,6 +362,15 @@ class TaskiqSettings(BaseSettings):
             raise ValueError(f"Unsupported broker type: {self.TASKIQ_BROKER_TYPE}")
 
 
+class AESSettings(BaseSettings):
+    """Object storage settings for the AES module (S3-compatible: real S3 in prod, LocalStack in dev)."""
+
+    AES_STORAGE_ENDPOINT_URL: str | None = config("AES_STORAGE_ENDPOINT_URL", default=None)
+    AES_STORAGE_BUCKET: str = config("AES_STORAGE_BUCKET", default="aes-submissions")
+    AES_STORAGE_ACCESS_KEY: str = config("AES_STORAGE_ACCESS_KEY", default="test")
+    AES_STORAGE_SECRET_KEY: str = config("AES_STORAGE_SECRET_KEY", default="test")
+
+
 class Settings(
     EnvironmentSettings,
     DatabaseSettings,
@@ -378,6 +387,7 @@ class Settings(
     SecuritySettings,
     LoggingSettings,
     TaskiqSettings,
+    AESSettings,
 ):
     """Main settings class that combines all setting categories."""
 
