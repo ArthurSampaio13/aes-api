@@ -127,6 +127,23 @@ async def test_db_engine(test_db_url):
             """
                 )
             )
+        await conn.execute(text("ALTER TABLE essay_prompts ENABLE ROW LEVEL SECURITY"))
+        await conn.execute(text("ALTER TABLE essay_prompts FORCE ROW LEVEL SECURITY"))
+        await conn.execute(
+            text(
+                """
+                CREATE POLICY tenant_isolation ON essay_prompts
+                USING (
+                    municipio_id = NULLIF(current_setting('app.municipio_id', true), '')::int
+                    OR current_setting('app.is_superuser', true)::boolean
+                )
+                WITH CHECK (
+                    municipio_id = NULLIF(current_setting('app.municipio_id', true), '')::int
+                    OR current_setting('app.is_superuser', true)::boolean
+                )
+            """
+            )
+        )
     yield engine
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
