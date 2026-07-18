@@ -63,6 +63,8 @@ class AesService:
     ) -> tuple[Any, list[Any]]:
         await self.check_budget(municipio_id, db)
         essay_prompt = await self.get_essay_prompt(str(data.essay_prompt_uuid), db)
+        prompt_template = await crud_prompt_templates.get(db=db, id=essay_prompt["prompt_template_id"])
+        rubric = await crud_rubrics.get(db=db, id=essay_prompt["rubric_id"])
 
         batch = Batch(municipio_id=municipio_id, essay_prompt_id=essay_prompt["uuid"], created_by_user_id=user_id)
         db.add(batch)
@@ -95,7 +97,10 @@ class AesService:
 
         for job_id in job_ids:
             await run_correction_job.kiq(  # type: ignore[call-overload]
-                job_id=str(job_id), prompt_text="Corrija: {essay_text}", prompt_version=1, rubric_version=1
+                job_id=str(job_id),
+                prompt_text=prompt_template["template_text"],  # type: ignore[index]
+                prompt_version=prompt_template["version"],  # type: ignore[index]
+                rubric_version=rubric["version"],  # type: ignore[index]
             )
 
         return batch.uuid, job_ids
