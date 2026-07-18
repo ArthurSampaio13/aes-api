@@ -65,3 +65,9 @@ class UsageLimitExceededError(DomainError):
     """Raised when a user exceeds their usage limits."""
 
     pass
+
+
+class BudgetExceededError(DomainError):
+    """Raised when a municipio's monthly token budget would be exceeded by a new submission."""
+
+    pass

@@ -1,10 +1,13 @@
+from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..common.exceptions import ResourceNotFoundError
+from ..common.exceptions import BudgetExceededError, ResourceNotFoundError
+from ..municipio.crud import crud_municipios
 from .crud import crud_correction_jobs, crud_correction_results, crud_essay_prompts, crud_prompt_templates, crud_rubrics
-from .models.correction import CorrectionJob
+from .models.correction import CorrectionAttempt, CorrectionJob
 from .models.submission import Batch, Submission
 from .schemas.essay_prompt import EssayPromptCreate, EssayPromptRead
 from .schemas.rubric import RubricCreate, RubricRead
@@ -37,9 +40,28 @@ class AesService:
             raise ResourceNotFoundError(f"EssayPrompt {essay_prompt_uuid} not found")
         return prompt
 
+    async def check_budget(self, municipio_id: int, db: AsyncSession) -> None:
+        municipio = await crud_municipios.get(db=db, id=municipio_id)
+        if not municipio or municipio["monthly_token_budget"] is None:
+            return
+
+        month_start = datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        spend = await db.execute(
+            select(func.coalesce(func.sum(CorrectionAttempt.tokens_in + CorrectionAttempt.tokens_out), 0)).where(
+                CorrectionAttempt.municipio_id == municipio_id, CorrectionAttempt.created_at >= month_start
+            )
+        )
+        total_tokens = spend.scalar_one()
+        if total_tokens >= municipio["monthly_token_budget"]:
+            raise BudgetExceededError(
+                f"Municipio {municipio_id} has used {total_tokens} tokens this month, "
+                f"at or above the {municipio['monthly_token_budget']} token budget."
+            )
+
     async def submit_batch(
         self, data: BatchSubmitRequest, user_id: int, municipio_id: int, db: AsyncSession
     ) -> tuple[Any, list[Any]]:
+        await self.check_budget(municipio_id, db)
         essay_prompt = await self.get_essay_prompt(str(data.essay_prompt_uuid), db)
 
         batch = Batch(municipio_id=municipio_id, essay_prompt_id=essay_prompt["uuid"], created_by_user_id=user_id)
