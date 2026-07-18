@@ -41,6 +41,38 @@ async def test_openrouter_provider_returns_validation_error_on_http_failure(monk
 
 
 @pytest.mark.asyncio
+async def test_openrouter_provider_returns_validation_error_on_malformed_body(monkeypatch):
+    async def fake_post(self, url, json, headers):
+        return httpx.Response(200, content=b"not json", request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+
+    provider = OpenRouterProvider(api_key="test-key", model="meta-llama/llama-3-8b-instruct:free")
+    response = await provider.correct(essay_text="texto", prompt="corrija: {essay_text}", params={})
+
+    assert response.structured is None
+    assert response.validation_error is not None
+
+
+@pytest.mark.asyncio
+async def test_openrouter_provider_returns_validation_error_on_non_dict_usage(monkeypatch):
+    async def fake_post(self, url, json, headers):
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "{}"}}], "usage": "not-a-dict"},
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+
+    provider = OpenRouterProvider(api_key="test-key", model="meta-llama/llama-3-8b-instruct:free")
+    response = await provider.correct(essay_text="texto", prompt="corrija: {essay_text}", params={})
+
+    assert response.structured is None
+    assert response.validation_error is not None
+
+
+@pytest.mark.asyncio
 async def test_openrouter_provider_handles_literal_braces_in_prompt_template(monkeypatch):
     captured = {}
 

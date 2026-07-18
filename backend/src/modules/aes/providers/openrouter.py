@@ -36,8 +36,10 @@ class OpenRouterProvider:
                 response.raise_for_status()
                 body = response.json()
                 content = body["choices"][0]["message"]["content"]
-                usage = body.get("usage", {})
-        except (httpx.HTTPError, KeyError, IndexError) as exc:
+                usage = body.get("usage") or {}
+                tokens_in = usage.get("prompt_tokens", 0)
+                tokens_out = usage.get("completion_tokens", 0)
+        except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError, AttributeError) as exc:
             return ProviderResponse(
                 raw_text="",
                 structured=None,
@@ -58,8 +60,8 @@ class OpenRouterProvider:
         return ProviderResponse(
             raw_text=content,
             structured=structured,
-            tokens_in=usage.get("prompt_tokens", 0),
-            tokens_out=usage.get("completion_tokens", 0),
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
             latency_ms=latency_ms,
             validation_error=validation_error,
         )
