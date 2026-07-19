@@ -1,8 +1,10 @@
 import pytest
 
+from src.interfaces.main import app
 from src.modules.aes import service as service_module
 from src.modules.aes.models.rubric import PromptTemplate
 from src.modules.aes.providers.base import FIXED_CRITERIA
+from src.modules.aes.storage import ObjectStorage, get_object_storage
 from src.modules.municipio.models import Municipio
 
 
@@ -99,6 +101,60 @@ async def test_submit_batch_resolves_real_prompt_and_rubric_version(auth_client,
     assert captured[0]["prompt_text"] == "Modelo customizado: {essay_text}"
     assert captured[0]["prompt_version"] == 5
     assert captured[0]["rubric_version"] == 3
+
+
+class _FakeImageS3Client:
+    def __init__(self):
+        self.objects: dict[str, bytes] = {}
+
+    async def put_object(self, Bucket, Key, Body, ContentType):
+        self.objects[Key] = Body
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+@pytest.mark.asyncio
+async def test_submit_image_batch_creates_one_job_per_image(auth_client, db_session, test_user):
+    essay_prompt_uuid = await _create_essay_prompt(auth_client, db_session, test_user)
+    fake_storage = ObjectStorage(bucket="test-bucket", client_factory=lambda: _FakeImageS3Client())
+    app.dependency_overrides[get_object_storage] = lambda: fake_storage
+
+    try:
+        response = await auth_client.post(
+            "/api/v1/aes/jobs/images",
+            data={"essay_prompt_uuid": essay_prompt_uuid, "provider": "mock", "model": "mock-v1"},
+            files=[
+                ("images", ("essay1.jpg", b"fake-jpeg-bytes", "image/jpeg")),
+                ("images", ("essay2.png", b"fake-png-bytes", "image/png")),
+            ],
+        )
+    finally:
+        app.dependency_overrides.pop(get_object_storage, None)
+
+    assert response.status_code == 201
+    assert len(response.json()["job_ids"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_submit_image_batch_rejects_unsupported_content_type(auth_client, db_session, test_user):
+    essay_prompt_uuid = await _create_essay_prompt(auth_client, db_session, test_user)
+    fake_storage = ObjectStorage(bucket="test-bucket", client_factory=lambda: _FakeImageS3Client())
+    app.dependency_overrides[get_object_storage] = lambda: fake_storage
+
+    try:
+        response = await auth_client.post(
+            "/api/v1/aes/jobs/images",
+            data={"essay_prompt_uuid": essay_prompt_uuid, "provider": "mock", "model": "mock-v1"},
+            files=[("images", ("essay.pdf", b"not-an-image", "application/pdf"))],
+        )
+    finally:
+        app.dependency_overrides.pop(get_object_storage, None)
+
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio

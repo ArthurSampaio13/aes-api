@@ -1,7 +1,7 @@
 from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.auth.api_key_dependencies import get_current_principal
@@ -13,6 +13,7 @@ from .dependencies import AesServiceDep, get_aes_tenant_session
 from .schemas.essay_prompt import EssayPromptCreate, EssayPromptRead
 from .schemas.rubric import RubricCreate, RubricRead
 from .schemas.submission import BatchSubmitRequest, BatchSubmitResponse, JobResultRead, JobStatusRead
+from .storage import ObjectStorage, get_object_storage
 
 router = APIRouter(tags=["AES"])
 
@@ -119,6 +120,37 @@ async def submit_batch(
     try:
         batch_id, job_ids = await aes_service.submit_batch(
             data, user_id=current_user["id"], municipio_id=current_user["municipio_id"], db=db
+        )
+        return {"batch_id": batch_id, "job_ids": job_ids}
+    except Exception as e:
+        http_exception = handle_exception(e)
+        if http_exception:
+            raise http_exception
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
+
+@router.post("/jobs/images", status_code=201, response_model=BatchSubmitResponse)
+async def submit_image_batch(
+    db: Annotated[AsyncSession, Depends(get_aes_tenant_session(_batch_write))],
+    current_user: Annotated[dict[str, Any], Depends(_batch_write)],
+    aes_service: AesServiceDep,
+    object_storage: Annotated[ObjectStorage, Depends(get_object_storage)],
+    essay_prompt_uuid: Annotated[str, Form()],
+    images: Annotated[list[UploadFile], File()],
+    provider: Annotated[str, Form()] = "mock",
+    model: Annotated[str, Form()] = "mock-v1",
+) -> dict[str, Any]:
+    try:
+        image_data = [(await image.read(), image.content_type or "") for image in images]
+        batch_id, job_ids = await aes_service.submit_image_batch(
+            essay_prompt_uuid=essay_prompt_uuid,
+            images=image_data,
+            provider=provider,
+            model=model,
+            user_id=current_user["id"],
+            municipio_id=current_user["municipio_id"],
+            db=db,
+            object_storage=object_storage,
         )
         return {"batch_id": batch_id, "job_ids": job_ids}
     except Exception as e:
