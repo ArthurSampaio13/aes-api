@@ -23,7 +23,9 @@ _ALLOWED_IMAGE_CONTENT_TYPES = {"image/jpeg": "jpg", "image/png": "png"}
 class AesService:
     async def create_rubric(self, data: RubricCreate, municipio_id: int, db: AsyncSession) -> dict[str, Any]:
         full_data = RubricCreateInternal(municipio_id=municipio_id, **data.model_dump())
-        return await crud_rubrics.create(db=db, object=full_data, schema_to_select=RubricRead)
+        result = await crud_rubrics.create(db=db, object=full_data, commit=False, schema_to_select=RubricRead)
+        await db.commit()
+        return result
 
     async def get_rubric(self, rubric_id: int, db: AsyncSession) -> dict[str, Any]:
         rubric = await crud_rubrics.get(db=db, id=rubric_id, schema_to_select=RubricRead)
@@ -39,7 +41,9 @@ class AesService:
         if not template_exists:
             raise ResourceNotFoundError(f"PromptTemplate {data.prompt_template_id} not found")
         full_data = EssayPromptCreateInternal(municipio_id=municipio_id, **data.model_dump())
-        return await crud_essay_prompts.create(db=db, object=full_data, schema_to_select=EssayPromptRead)
+        result = await crud_essay_prompts.create(db=db, object=full_data, commit=False, schema_to_select=EssayPromptRead)
+        await db.commit()
+        return result
 
     async def get_essay_prompt(self, essay_prompt_uuid: str, db: AsyncSession) -> dict[str, Any]:
         prompt = await crud_essay_prompts.get(db=db, uuid=essay_prompt_uuid, schema_to_select=EssayPromptRead)

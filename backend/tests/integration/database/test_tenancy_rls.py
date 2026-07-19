@@ -14,6 +14,9 @@ from src.modules.aes.models.submission import Batch, Submission
 from src.modules.aes.providers.base import FIXED_CRITERIA
 from src.modules.aes.providers.mock import MockProvider
 from src.modules.aes.providers.mock_ocr import MockOCRProvider
+from src.modules.aes.schemas.essay_prompt import EssayPromptCreate
+from src.modules.aes.schemas.rubric import RubricCreate
+from src.modules.aes.service import AesService
 from src.modules.aes.storage import ObjectStorage
 from src.modules.aes.worker import process_correction_job
 from src.modules.municipio.models import Municipio
@@ -214,3 +217,56 @@ async def test_worker_survives_real_commits_and_completes_job_under_rls(rls_db_r
     await set_tenant_context(rls_db_real_commits, municipio_id=municipio.id, is_superuser=False)
     refetched = (await rls_db_real_commits.execute(select(CorrectionJob).where(CorrectionJob.uuid == job.uuid))).scalar_one()
     assert refetched.status == "done"
+
+
+@pytest.mark.integration
+async def test_create_rubric_survives_real_commit_under_rls(rls_db_real_commits: AsyncSession):
+    municipio = Municipio(nome="Create Rubric RLS Test")
+    rls_db_real_commits.add(municipio)
+    await rls_db_real_commits.commit()
+
+    await set_tenant_context(rls_db_real_commits, municipio_id=municipio.id, is_superuser=False)
+
+    service = AesService()
+    criteria = {c: {"descricao": c, "peso": 0.2, "escala_max": 10} for c in FIXED_CRITERIA}
+    result = await service.create_rubric(
+        RubricCreate(version=1, criteria=criteria), municipio_id=municipio.id, db=rls_db_real_commits
+    )
+
+    assert result["version"] == 1
+    assert result["id"] is not None
+
+
+@pytest.mark.integration
+async def test_create_essay_prompt_survives_real_commit_under_rls(rls_db_real_commits: AsyncSession):
+    municipio = Municipio(nome="Create EssayPrompt RLS Test")
+    rls_db_real_commits.add(municipio)
+    await rls_db_real_commits.commit()
+
+    await set_tenant_context(rls_db_real_commits, municipio_id=municipio.id, is_superuser=False)
+
+    rubric = Rubric(
+        version=1,
+        criteria={c: {"descricao": c, "peso": 0.2, "escala_max": 10} for c in FIXED_CRITERIA},
+        municipio_id=municipio.id,
+    )
+    template = PromptTemplate(version=1, template_text="Corrija: {essay_text}", municipio_id=municipio.id)
+    rls_db_real_commits.add_all([rubric, template])
+    await rls_db_real_commits.commit()
+
+    await set_tenant_context(rls_db_real_commits, municipio_id=municipio.id, is_superuser=False)
+
+    service = AesService()
+    data = EssayPromptCreate(
+        titulo="Teste",
+        enunciado="Escreva sobre...",
+        ano_escolar="9",
+        genero_textual="dissertativo-argumentativo",
+        support_texts=[],
+        rubric_id=rubric.id,
+        prompt_template_id=template.id,
+    )
+    result = await service.create_essay_prompt(data, municipio_id=municipio.id, db=rls_db_real_commits)
+
+    assert result["titulo"] == "Teste"
+    assert result["uuid"] is not None
