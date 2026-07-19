@@ -19,7 +19,7 @@ class BedrockProvider:
         instructions, user_content = split_prompt_for_caching(prompt, essay_text)
         started_at = time.monotonic()
         try:
-            result = await self.agent.run(
+            result = await self.agent.run(  # type: ignore[call-overload]
                 user_content,
                 instructions=instructions,
                 model_settings={
