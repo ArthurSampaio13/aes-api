@@ -1,4 +1,5 @@
 import pytest
+from pydantic_ai import ModelResponse, RequestUsage, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.models.test import TestModel
 
@@ -73,3 +74,32 @@ async def test_openrouter_provider_splits_static_prefix_into_cacheable_instructi
     # `'\n\n'.join(parts).strip()`), so trailing whitespace from the static prefix does not survive.
     assert captured["instructions"] == 'Responda como {"scores": {}, "feedback": "..."}. Redação:'
     assert captured["user_content"] == "texto do aluno"
+
+
+@pytest.mark.asyncio
+async def test_openrouter_provider_folds_cache_tokens_into_tokens_in():
+    provider = OpenRouterProvider(api_key="test-key", model="meta-llama/llama-3-8b-instruct:free")
+    scores = {
+        "adequacao_tema": {"nota": 6, "justificativa": "ok"},
+        "estrutura_textual": {"nota": 6, "justificativa": "ok"},
+        "coesao_coerencia": {"nota": 6, "justificativa": "ok"},
+        "adequacao_ling": {"nota": 6, "justificativa": "ok"},
+        "vocabulario": {"nota": 6, "justificativa": "ok"},
+    }
+
+    def return_cached_response(messages: list, info: AgentInfo) -> ModelResponse:
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    tool_name="final_result",
+                    args={"scores": scores, "feedback": "ok", "sugestao_acionavel": "ok"},
+                )
+            ],
+            usage=RequestUsage(input_tokens=10, output_tokens=50, cache_read_tokens=200, cache_write_tokens=0),
+        )
+
+    with provider.agent.override(model=FunctionModel(return_cached_response)):
+        response = await provider.correct(essay_text="texto", prompt="corrija: {essay_text}", params={})
+
+    assert response.tokens_in == 210
+    assert response.tokens_out == 50

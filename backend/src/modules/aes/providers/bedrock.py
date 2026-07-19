@@ -41,7 +41,7 @@ class BedrockProvider:
         return ProviderResponse(
             raw_text=extract_raw_output_text(result.new_messages()),
             structured=result.output,
-            tokens_in=usage.input_tokens,
+            tokens_in=usage.input_tokens + usage.cache_read_tokens + usage.cache_write_tokens,
             tokens_out=usage.output_tokens,
             latency_ms=int((time.monotonic() - started_at) * 1000),
             validation_error=None,
