@@ -13,7 +13,7 @@ async def test_anonymize_user_failure_logs_bound_audit_fields(monkeypatch):
 
     monkeypatch.setattr(user_service_module.crud_users, "get", fake_get)
 
-    records: list[dict] = []
+    records = []
     sink_id = logger.add(records.append)
 
     try:
