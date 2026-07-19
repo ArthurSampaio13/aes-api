@@ -1,22 +1,52 @@
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...infrastructure.auth.api_key_dependencies import get_current_principal
 from ...infrastructure.auth.http_exceptions import HTTPException
 from ...infrastructure.cache import cache
-from ...infrastructure.dependencies import CurrentMunicipioIdDep, CurrentUserDep, TenantSessionDep
+from ...modules.api_keys.enums import KeyPermissionAction, KeyPermissionResource
 from ..common.utils.error_handler import handle_exception
-from .dependencies import AesServiceDep
+from .dependencies import AesServiceDep, get_aes_tenant_session
 from .schemas.essay_prompt import EssayPromptCreate, EssayPromptRead
 from .schemas.rubric import RubricCreate, RubricRead
 from .schemas.submission import BatchSubmitRequest, BatchSubmitResponse, JobResultRead, JobStatusRead
 
 router = APIRouter(tags=["AES"])
 
+_rubric_write = get_current_principal(KeyPermissionResource.RUBRICS, KeyPermissionAction.CREATE)
+_rubric_read = get_current_principal(KeyPermissionResource.RUBRICS, KeyPermissionAction.READ)
+_essay_prompt_write = get_current_principal(KeyPermissionResource.ESSAY_PROMPTS, KeyPermissionAction.CREATE)
+_essay_prompt_read = get_current_principal(KeyPermissionResource.ESSAY_PROMPTS, KeyPermissionAction.READ)
+_batch_write = get_current_principal(KeyPermissionResource.BATCHES, KeyPermissionAction.CREATE)
+_batch_read = get_current_principal(KeyPermissionResource.BATCHES, KeyPermissionAction.READ)
+
+
+def _municipio_id_from_principal(
+    principal_dependency: Callable[..., Awaitable[dict[str, Any]]],
+) -> Callable[..., Awaitable[int]]:
+    """Extract `municipio_id` as its own bare dependency, for the `@cache` decorator's `{municipio_id}` key
+    interpolation (Task 2b) — must be passed the same `principal_dependency` object used for the route's `db`/
+    `current_user` dependencies so FastAPI's per-request cache resolves it only once, not three times."""
+
+    async def _extract(current_user: Annotated[dict[str, Any], Depends(principal_dependency)]) -> int:
+        return current_user["municipio_id"]  # type: ignore[no-any-return]
+
+    return _extract
+
+
+_rubric_read_municipio_id = _municipio_id_from_principal(_rubric_read)
+_essay_prompt_read_municipio_id = _municipio_id_from_principal(_essay_prompt_read)
+
 
 @router.post("/rubrics", status_code=201, response_model=RubricRead)
 async def create_rubric(
-    data: RubricCreate, db: TenantSessionDep, current_user: CurrentUserDep, aes_service: AesServiceDep
+    data: RubricCreate,
+    db: Annotated[AsyncSession, Depends(get_aes_tenant_session(_rubric_write))],
+    current_user: Annotated[dict[str, Any], Depends(_rubric_write)],
+    aes_service: AesServiceDep,
 ) -> dict[str, Any]:
     try:
         return await aes_service.create_rubric(data, municipio_id=current_user["municipio_id"], db=db)
@@ -32,8 +62,8 @@ async def create_rubric(
 async def get_rubric(
     request: Request,
     rubric_id: int,
-    municipio_id: CurrentMunicipioIdDep,
-    db: TenantSessionDep,
+    municipio_id: Annotated[int, Depends(_rubric_read_municipio_id)],
+    db: Annotated[AsyncSession, Depends(get_aes_tenant_session(_rubric_read))],
     aes_service: AesServiceDep,
 ) -> dict[str, Any]:
     try:
@@ -47,7 +77,10 @@ async def get_rubric(
 
 @router.post("/essay-prompts", status_code=201, response_model=EssayPromptRead)
 async def create_essay_prompt(
-    data: EssayPromptCreate, db: TenantSessionDep, current_user: CurrentUserDep, aes_service: AesServiceDep
+    data: EssayPromptCreate,
+    db: Annotated[AsyncSession, Depends(get_aes_tenant_session(_essay_prompt_write))],
+    current_user: Annotated[dict[str, Any], Depends(_essay_prompt_write)],
+    aes_service: AesServiceDep,
 ) -> dict[str, Any]:
     try:
         return await aes_service.create_essay_prompt(data, municipio_id=current_user["municipio_id"], db=db)
@@ -63,8 +96,8 @@ async def create_essay_prompt(
 async def get_essay_prompt(
     request: Request,
     essay_prompt_uuid: str,
-    municipio_id: CurrentMunicipioIdDep,
-    db: TenantSessionDep,
+    municipio_id: Annotated[int, Depends(_essay_prompt_read_municipio_id)],
+    db: Annotated[AsyncSession, Depends(get_aes_tenant_session(_essay_prompt_read))],
     aes_service: AesServiceDep,
 ) -> dict[str, Any]:
     try:
@@ -78,7 +111,10 @@ async def get_essay_prompt(
 
 @router.post("/jobs", status_code=201, response_model=BatchSubmitResponse)
 async def submit_batch(
-    data: BatchSubmitRequest, db: TenantSessionDep, current_user: CurrentUserDep, aes_service: AesServiceDep
+    data: BatchSubmitRequest,
+    db: Annotated[AsyncSession, Depends(get_aes_tenant_session(_batch_write))],
+    current_user: Annotated[dict[str, Any], Depends(_batch_write)],
+    aes_service: AesServiceDep,
 ) -> dict[str, Any]:
     try:
         batch_id, job_ids = await aes_service.submit_batch(
@@ -93,7 +129,9 @@ async def submit_batch(
 
 
 @router.get("/jobs/{job_id}", response_model=JobStatusRead)
-async def get_job_status(job_id: str, db: TenantSessionDep, aes_service: AesServiceDep) -> dict[str, Any]:
+async def get_job_status(
+    job_id: str, db: Annotated[AsyncSession, Depends(get_aes_tenant_session(_batch_read))], aes_service: AesServiceDep
+) -> dict[str, Any]:
     try:
         return await aes_service.get_job_status(job_id, db)
     except Exception as e:
@@ -104,7 +142,9 @@ async def get_job_status(job_id: str, db: TenantSessionDep, aes_service: AesServ
 
 
 @router.get("/jobs/{job_id}/results", response_model=JobResultRead)
-async def get_job_results(job_id: str, db: TenantSessionDep, aes_service: AesServiceDep) -> dict[str, Any]:
+async def get_job_results(
+    job_id: str, db: Annotated[AsyncSession, Depends(get_aes_tenant_session(_batch_read))], aes_service: AesServiceDep
+) -> dict[str, Any]:
     try:
         return await aes_service.get_job_result(job_id, db)
     except Exception as e:

@@ -22,7 +22,7 @@ from testcontainers.core.docker_client import DockerClient
 from testcontainers.postgres import PostgresContainer
 
 from src.infrastructure.auth.session.backends.memory import MemorySessionStorage
-from src.infrastructure.auth.session.dependencies import get_current_superuser, get_current_user
+from src.infrastructure.auth.session.dependencies import get_current_superuser, get_current_user, get_optional_user
 from src.infrastructure.auth.session.schemas import CSRFToken, SessionData
 from src.infrastructure.auth.utils import get_password_hash
 from src.infrastructure.config.settings import Settings, get_settings
@@ -363,12 +363,18 @@ async def test_superuser(db_session: AsyncSession, test_tier: dict):
 
 @pytest_asyncio.fixture
 async def auth_client(client: AsyncClient, test_user: dict):
-    """Authenticated test client (regular user) — overrides get_current_user dependency."""
+    """Authenticated test client (regular user) — overrides get_current_user dependency.
+
+    Also overrides `get_optional_user`, which `get_current_principal` (API-key/session dual auth) uses for its
+    session fallback path — a distinct callable from `get_current_user` that FastAPI's dependency_overrides
+    would otherwise not substitute.
+    """
 
     async def override_get_current_user():
         return test_user
 
     app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_optional_user] = override_get_current_user
     return client
 
 
@@ -380,6 +386,7 @@ async def auth_client_2(client: AsyncClient, test_user_2: dict):
         return test_user_2
 
     app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_optional_user] = override_get_current_user
     return client
 
 
@@ -394,6 +401,7 @@ async def superuser_auth_client(client: AsyncClient, test_superuser: dict):
         return test_superuser
 
     app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_optional_user] = override_get_current_user
     app.dependency_overrides[get_current_superuser] = override_get_current_superuser
     return client
 

@@ -99,3 +99,59 @@ async def test_submit_batch_resolves_real_prompt_and_rubric_version(auth_client,
     assert captured[0]["prompt_text"] == "Modelo customizado: {essay_text}"
     assert captured[0]["prompt_version"] == 5
     assert captured[0]["rubric_version"] == 3
+
+
+@pytest.mark.asyncio
+async def test_submit_batch_authenticates_via_api_key_header(auth_client, db_session, test_user):
+    from src.infrastructure.auth.session.dependencies import get_current_user, get_optional_user
+    from src.interfaces.main import app
+    from src.modules.api_keys.crud import crud_key_permissions
+    from src.modules.api_keys.enums import KeyPermissionAction, KeyPermissionResource
+    from src.modules.api_keys.schemas import APIKeyCreate, KeyPermissionCreate
+    from src.modules.api_keys.service import APIKeyService
+    from src.modules.user.models import User
+
+    essay_prompt_uuid = await _create_essay_prompt(auth_client, db_session, test_user)
+
+    key_user = User(
+        name="Integração Município",
+        username="integracao-municipio",
+        email="integracao@municipio.example",
+        hashed_password="unused",
+        municipio_id=test_user["municipio_id"],
+        is_superuser=False,
+    )
+    db_session.add(key_user)
+    await db_session.flush()
+
+    service = APIKeyService()
+    created = await service.create_api_key(user_id=key_user.id, key_data=APIKeyCreate(name="integração"), db=db_session)
+    await crud_key_permissions.create(
+        db=db_session,
+        object=KeyPermissionCreate(
+            api_key_id=created["id"],
+            resource=KeyPermissionResource.BATCHES,
+            action=KeyPermissionAction.CREATE,
+            is_allowed=True,
+        ),
+    )
+    await db_session.commit()
+
+    # Drop the auth_client fixture's session-auth overrides so this request can only succeed through the
+    # X-API-Key header path, not via leftover session authentication.
+    app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_optional_user, None)
+
+    response = await auth_client.post(
+        "/api/v1/aes/jobs",
+        headers={"X-API-Key": created["api_key"]},
+        json={
+            "essay_prompt_uuid": essay_prompt_uuid,
+            "texts": ["Redação de teste enviada via integração."],
+            "provider": "mock",
+            "model": "mock-v1",
+        },
+    )
+
+    assert response.status_code == 201
+    assert len(response.json()["job_ids"]) == 1
