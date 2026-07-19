@@ -1,6 +1,7 @@
 from typing import Annotated, Any
 
 from fastapi import Cookie, Depends, Header, Request
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....infrastructure.auth.http_exceptions import (
@@ -11,7 +12,6 @@ from ....infrastructure.auth.http_exceptions import (
 from ....infrastructure.database.session import async_session
 from ....modules.user.crud import crud_users
 from ...config.settings import get_settings
-from ...logging import get_logger
 from ...rate_limit.provider import get_rate_limiter_backend
 from ..utils import verify_password
 from .manager import SessionManager
@@ -19,14 +19,13 @@ from .schemas import SessionData
 from .storage import AbstractSessionStorage, get_session_storage
 
 settings = get_settings()
-logger = get_logger()
 
 _session_manager: SessionManager | None = None
 
 
 def get_session_manager() -> SessionManager:
     """Get the session manager singleton (initialized once, reused across requests)."""
-    global _session_manager  # noqa: PLW0603
+    global _session_manager
     if _session_manager is not None:
         return _session_manager
 

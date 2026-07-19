@@ -2,21 +2,18 @@ import secrets
 from datetime import UTC, datetime
 from typing import Any, cast
 
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....modules.user.crud import crud_users
 from ....modules.user.enums import OAuthProvider
 from ....modules.user.schemas import UserCreateInternal, UserRead
 from ...auth.utils import get_password_hash
-from ...logging import get_logger
 from .schemas import OAuthUserInfo
-
-logger = get_logger()
 
 
 class OAuthAccountService:
-    """
-    Service for handling OAuth account creation and linking.
+    """Service for handling OAuth account creation and linking.
 
     This service is responsible for:
     - Linking OAuth accounts to existing users
@@ -25,8 +22,7 @@ class OAuthAccountService:
     """
 
     async def get_or_create_user(self, oauth_user_info: OAuthUserInfo, db: AsyncSession) -> tuple[dict[str, Any], bool]:
-        """
-        Get existing user or create a new one from OAuth information.
+        """Get existing user or create a new one from OAuth information.
 
         Args:
             oauth_user_info: Standardized OAuth user info
@@ -62,8 +58,7 @@ class OAuthAccountService:
         return await self._create_user_from_oauth(oauth_user_info, db)
 
     async def _create_user_from_oauth(self, oauth_user_info: OAuthUserInfo, db: AsyncSession) -> tuple[dict[str, Any], bool]:
-        """
-        Create a new user from OAuth user information.
+        """Create a new user from OAuth user information.
 
         Args:
             oauth_user_info: Standardized OAuth user info

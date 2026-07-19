@@ -3,11 +3,11 @@ from typing import Any, cast
 
 from fastcrud import JoinConfig
 from fastcrud.types import GetMultiResponseDict
+from loguru import logger
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.auth.utils import get_password_hash
-from ...infrastructure.logging import get_logger
 from ..common.exceptions import PermissionDeniedError, TierNotFoundError, UserExistsError, UserNotFoundError, ValidationError
 from ..rate_limit.models import RateLimit
 from ..rate_limit.schemas import RateLimitRead
@@ -28,15 +28,12 @@ from .schemas import (
     UserUpdate,
 )
 
-logger = get_logger()
-
 
 class UserService:
     """Service class for user-related operations.
 
-    This service manages user accounts including creation, updates, authentication,
-    tier management, and permission handling. It provides comprehensive user
-    management functionality with support for soft deletion, tier-based access
+    This service manages user accounts including creation, updates, authentication, tier management, and permission
+    handling. It provides comprehensive user management functionality with support for soft deletion, tier-based access
     control, and rate limiting through tier associations.
     """
 
@@ -62,11 +59,7 @@ class UserService:
 
         Example:
             ```python
-            user_data = UserCreate(
-                email="user@example.com",
-                username="johndoe",
-                password="securepassword123"
-            )
+            user_data = UserCreate(email="user@example.com", username="johndoe", password="securepassword123")
             created_user = await service.create(user_data, db)
             ```
         """
@@ -248,10 +241,7 @@ class UserService:
 
         Example:
             ```python
-            update_data = UserUpdate(
-                email="newemail@example.com",
-                first_name="John"
-            )
+            update_data = UserUpdate(email="newemail@example.com", first_name="John")
             updated_user = await service.update(123, update_data, db)
             ```
         """
@@ -323,9 +313,7 @@ class UserService:
 
         Example:
             ```python
-            await service.verify_user_permission(
-                current_user, "johndoe", "update profile"
-            )
+            await service.verify_user_permission(current_user, "johndoe", "update profile")
             ```
         """
         has_permission = await self.check_update_permission(requester_user, target_username)
@@ -423,14 +411,11 @@ class UserService:
 
             timestamp = int(datetime.now(UTC).timestamp())
 
-            logger.info(
-                "User anonymization requested",
-                extra={
-                    "user_id": user_id,
-                    "email": existing_user.get("email"),
-                    "action": "user_anonymization_start",
-                },
-            )
+            logger.bind(
+                user_id=user_id,
+                email=existing_user.get("email"),
+                action="user_anonymization_start",
+            ).info("User anonymization requested")
 
             anonymize_data = UserAnonymize(
                 name="[DELETED]",
@@ -451,22 +436,20 @@ class UserService:
             await crud_users.delete(db=db, id=user_id)
 
             anonymized_fields = list(anonymize_data.model_dump(exclude_unset=True).keys())
-            logger.info(
-                "User anonymization completed",
-                extra={
-                    "user_id": user_id,
-                    "retained_data": ["email", "created_at", "updated_at", "id"],
-                    "anonymized_fields": anonymized_fields,
-                    "action": "user_anonymization_complete",
-                    "foreign_keys_preserved": True,
-                },
-            )
+            logger.bind(
+                user_id=user_id,
+                retained_data=["email", "created_at", "updated_at", "id"],
+                anonymized_fields=anonymized_fields,
+                action="user_anonymization_complete",
+                foreign_keys_preserved=True,
+            ).info("User anonymization completed")
 
         except NoResultFound:
-            logger.warning(
-                "User anonymization failed - user not found",
-                extra={"user_id": user_id, "action": "user_anonymization_failed", "reason": "user_not_found"},
-            )
+            logger.bind(
+                user_id=user_id,
+                action="user_anonymization_failed",
+                reason="user_not_found",
+            ).warning("User anonymization failed - user not found")
             raise UserNotFoundError(f"User with ID {user_id} not found")
 
     async def update_tier(self, user_id: int, tier_update: UserTierUpdate, db: AsyncSession) -> dict[str, Any]:

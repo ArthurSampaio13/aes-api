@@ -2,7 +2,6 @@ from fastapi import Depends, HTTPException, status
 
 from ....infrastructure.config.settings import get_settings
 from ....modules.user.enums import OAuthProvider
-from ...logging import get_logger
 from ..session.storage import AbstractSessionStorage, get_session_storage
 from .factory import OAuthProviderFactory
 from .provider import AbstractOAuthProvider
@@ -10,7 +9,6 @@ from .providers.github import GitHubOAuthProvider
 from .providers.google import GoogleOAuthProvider
 from .schemas import OAuthState
 
-logger = get_logger()
 settings = get_settings()
 
 OAuthProviderFactory.register_provider(OAuthProvider.GOOGLE.value, GoogleOAuthProvider)
@@ -32,8 +30,7 @@ def get_oauth_state_storage() -> AbstractSessionStorage[OAuthState]:
 
 
 def get_google_provider() -> AbstractOAuthProvider:
-    """
-    Get the configured Google OAuth provider instance.
+    """Get the configured Google OAuth provider instance.
 
     Returns:
         Configured Google OAuth provider
@@ -56,8 +53,7 @@ def get_google_provider() -> AbstractOAuthProvider:
 
 
 def get_github_provider() -> AbstractOAuthProvider:
-    """
-    Get the configured GitHub OAuth provider instance.
+    """Get the configured GitHub OAuth provider instance.
 
     Returns:
         Configured GitHub OAuth provider
@@ -82,8 +78,7 @@ def get_github_provider() -> AbstractOAuthProvider:
 async def get_oauth_state(
     state: str, state_storage: AbstractSessionStorage[OAuthState] = Depends(get_oauth_state_storage)
 ) -> OAuthState | None:
-    """
-    Get and validate the OAuth state from storage.
+    """Get and validate the OAuth state from storage.
 
     Args:
         state: State parameter from OAuth callback

@@ -11,14 +11,12 @@ from typing import Generic, TypeVar, cast
 from pydantic import BaseModel
 
 from ...config import SessionBackend
-from ...logging import get_logger
 from .backends.memcached import MemcachedSessionStorage
 from .backends.memory import MemorySessionStorage
 from .backends.redis import RedisSessionStorage
 from .base import AbstractSessionStorage
 
 T = TypeVar("T", bound=BaseModel)
-logger = get_logger(__name__)
 
 __all__ = ["AbstractSessionStorage", "SessionStorage", "get_session_storage"]
 

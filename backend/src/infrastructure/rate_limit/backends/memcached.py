@@ -9,13 +9,11 @@ except ImportError:
         "Please install it with 'pip install aiomcache' or 'pip install -e \".[memcached]\"'"
     )
 
+from loguru import logger
 from pydantic import BaseModel
 
-from ....modules.common.utils.logger import get_logger
 from ..base import RateLimiterBackend
 from ..exceptions import RateLimiterBackendException
-
-logger = get_logger(__name__)
 
 
 class MemcachedSettings(BaseModel):

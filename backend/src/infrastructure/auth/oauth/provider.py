@@ -6,16 +6,13 @@ from typing import Any, cast
 from urllib.parse import urlencode
 
 import httpx
+from loguru import logger
 
-from ...logging import get_logger
 from .schemas import OAuthUserInfo
-
-logger = get_logger()
 
 
 class AbstractOAuthProvider(ABC):
-    """
-    Abstract base class for OAuth 2.0 authentication providers.
+    """Abstract base class for OAuth 2.0 authentication providers.
 
     This class defines the interface that all OAuth providers must implement
     and provides common functionality for the OAuth authentication flow.
@@ -72,8 +69,7 @@ class AbstractOAuthProvider(ABC):
     async def get_authorization_url(
         self, state: str | None = None, pkce: bool = True, extra_params: dict[str, str] | None = None
     ) -> dict[str, str]:
-        """
-        Get the authorization URL for redirecting users to the provider.
+        """Get the authorization URL for redirecting users to the provider.
 
         Args:
             state: Optional state parameter for CSRF protection. If not provided,
@@ -112,8 +108,7 @@ class AbstractOAuthProvider(ABC):
     async def exchange_code(
         self, code: str, code_verifier: str | None = None, headers: dict[str, str] | None = None
     ) -> dict[str, Any]:
-        """
-        Exchange authorization code for access token.
+        """Exchange authorization code for access token.
 
         Args:
             code: Authorization code received from provider
@@ -148,8 +143,7 @@ class AbstractOAuthProvider(ABC):
             raise
 
     async def get_user_info(self, access_token: str) -> dict[str, Any]:
-        """
-        Get user information from the provider using an access token.
+        """Get user information from the provider using an access token.
 
         Args:
             access_token: OAuth access token
@@ -172,8 +166,7 @@ class AbstractOAuthProvider(ABC):
             raise
 
     async def validate_token(self, access_token: str) -> bool:
-        """
-        Validate that an access token is still valid.
+        """Validate that an access token is still valid.
 
         Default implementation checks if we can fetch user info.
         Override for providers with specific token validation endpoints.
@@ -192,8 +185,7 @@ class AbstractOAuthProvider(ABC):
 
     @abstractmethod
     async def process_user_info(self, user_info: dict[str, Any]) -> OAuthUserInfo:
-        """
-        Process provider-specific user info into a standardized format.
+        """Process provider-specific user info into a standardized format.
 
         Must be implemented by each provider to normalize user data.
 

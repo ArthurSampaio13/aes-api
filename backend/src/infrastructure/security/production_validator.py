@@ -1,15 +1,14 @@
 """Production security validation.
 
-This module provides comprehensive security validation for production environments,
-checking for common misconfigurations that could lead to security vulnerabilities.
+This module provides comprehensive security validation for production environments, checking for common
+misconfigurations that could lead to security vulnerabilities.
 """
 
 import re
 
-from ..config.settings import EnvironmentOption, Settings
-from ..logging import get_logger
+from loguru import logger
 
-logger = get_logger()
+from ..config.settings import EnvironmentOption, Settings
 
 
 class ProductionSecurityError(Exception):
@@ -85,7 +84,7 @@ class ProductionSecurityValidator:
             and admin interface configurations.
         """
         self.settings = settings
-        self.logger = get_logger()
+        self.logger = logger
 
     def validate_production_security(self) -> None:
         """Validate production security configuration comprehensively.

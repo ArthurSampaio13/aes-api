@@ -10,15 +10,14 @@ except ImportError:
         "The redis package is not installed. Please install it with 'pip install redis' or 'pip install -e \".[redis]\"'"
     )
 
+from loguru import logger
 from pydantic import BaseModel
 
 from ....config.settings import get_settings
-from ....logging import get_logger
 from ..base import AbstractSessionStorage
 
 T = TypeVar("T", bound=BaseModel)
 settings = get_settings()
-logger = get_logger()
 
 
 class RedisSessionStorage(AbstractSessionStorage[T]):

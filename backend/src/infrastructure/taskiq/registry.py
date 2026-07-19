@@ -1,11 +1,10 @@
 """Simple task registry for development and monitoring."""
 
-import logging
 from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class TaskRegistry:
@@ -52,7 +51,7 @@ class TaskRegistry:
             "registry_created_at": self._registered_at,
             "tasks_by_broker": {
                 broker: len([t for t in self._tasks.values() if t["broker"] == broker])
-                for broker in set(t["broker"] for t in self._tasks.values())
+                for broker in {t["broker"] for t in self._tasks.values()}
             },
         }
 

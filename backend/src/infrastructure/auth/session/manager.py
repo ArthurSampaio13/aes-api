@@ -3,15 +3,14 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from fastapi import Request, Response
+from loguru import logger
 
 from ...config.settings import get_settings
-from ...logging import get_logger
 from .schemas import CSRFToken, SessionCreate, SessionData, UserAgentInfo
 from .storage import AbstractSessionStorage, get_session_storage
 from .user_agents_types import parse
 
 settings = get_settings()
-logger = get_logger()
 
 SamesiteType = Literal["lax", "strict", "none"]
 DEV_SAMESITE: SamesiteType = "lax"

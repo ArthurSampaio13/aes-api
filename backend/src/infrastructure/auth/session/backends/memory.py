@@ -4,13 +4,12 @@ from datetime import UTC, datetime, timedelta
 from re import Pattern
 from typing import TypeVar
 
+from loguru import logger
 from pydantic import BaseModel
 
-from ....logging import get_logger
 from ..base import AbstractSessionStorage
 
 T = TypeVar("T", bound=BaseModel)
-logger = get_logger()
 
 
 class MemorySessionStorage(AbstractSessionStorage[T]):

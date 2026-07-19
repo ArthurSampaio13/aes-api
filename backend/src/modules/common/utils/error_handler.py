@@ -5,20 +5,18 @@ import uuid as uuid_mod
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from loguru import logger
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
 from ....infrastructure.auth.http_exceptions import (
     HTTPException,
 )
-from ....infrastructure.logging import get_logger
 from ..constants import EXCEPTION_MAPPING, GENERIC_ERROR_MESSAGE, SUPPORT_ID_LENGTH
 from ..exceptions import (
     DomainError,
     InsufficientCreditsError,
 )
-
-logger = get_logger()
 
 
 def _generate_support_id() -> str:

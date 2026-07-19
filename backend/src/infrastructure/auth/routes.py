@@ -3,6 +3,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
+from loguru import logger
 
 from ...modules.user.crud import crud_users
 from ...modules.user.enums import OAuthProvider
@@ -16,7 +17,6 @@ from ..dependencies import (
     OptionalSessionDataDep,
     SessionManagerDep,
 )
-from ..logging import get_logger
 from .http_exceptions import UnauthorizedException
 from .oauth.dependencies import get_oauth_state
 from .oauth.schemas import OAuthState, OAuthToken
@@ -24,7 +24,6 @@ from .oauth.services import oauth_account_service
 from .session.dependencies import authenticate_user
 
 settings = get_settings()
-logger = get_logger()
 
 router = APIRouter(tags=["Authentication"])
 
@@ -60,9 +59,8 @@ async def login(
 ) -> dict[str, str]:
     """Login endpoint to get session cookies.
 
-    The session ID is set as an HTTP-only cookie.
-    The CSRF token is set as a regular cookie and returned in the response.
-    This endpoint is protected by rate limiting to prevent brute force attacks.
+    The session ID is set as an HTTP-only cookie. The CSRF token is set as a regular cookie and returned in the
+    response. This endpoint is protected by rate limiting to prevent brute force attacks.
     """
     ip_address = request.client.host if request.client and hasattr(request.client, "host") else "unknown"
 
@@ -207,8 +205,7 @@ async def oauth_google_login(
     state_storage: OAuthStateStorageDep,
     redirect_uri: str | None = Query(None),
 ) -> dict[str, str]:
-    """
-    Initiate OAuth login flow for Google.
+    """Initiate OAuth login flow for Google.
 
     Args:
         request: The request object
@@ -308,8 +305,7 @@ async def oauth_google_callback(
     state: str = Query(...),
     response_format: str = Query("redirect", description="Response format, either 'redirect' or 'json'"),
 ):
-    """
-    Handle OAuth callback from Google.
+    """Handle OAuth callback from Google.
 
     Args:
         request: The request object
@@ -426,8 +422,7 @@ async def check_auth(
     session_data: OptionalSessionDataDep,
     db: AsyncSessionDep,
 ) -> dict[str, Any]:
-    """
-    Check if the user is authenticated and return basic user information.
+    """Check if the user is authenticated and return basic user information.
 
     This is useful for clients to verify authentication status and can be used
     with both cookie-based and API-based authentication.

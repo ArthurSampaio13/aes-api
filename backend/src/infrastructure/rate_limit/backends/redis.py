@@ -8,13 +8,11 @@ except ImportError:
         "The redis package is not installed. Please install it with 'pip install redis' or 'pip install -e \".[redis]\"'"
     )
 
+from loguru import logger
 from pydantic import BaseModel
 
-from ....modules.common.utils.logger import get_logger
 from ..base import RateLimiterBackend
 from ..exceptions import RateLimiterBackendException
-
-logger = get_logger(__name__)
 
 
 class RedisSettings(BaseModel):

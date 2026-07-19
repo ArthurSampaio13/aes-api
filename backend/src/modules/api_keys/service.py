@@ -9,10 +9,10 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastcrud.types import GetMultiResponseDict
+from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...infrastructure.logging import get_logger
 from ..common.exceptions import PermissionDeniedError, ResourceNotFoundError
 from .crud import crud_api_keys, crud_key_permissions, crud_key_usage
 from .enums import KeyPermissionAction, KeyPermissionResource
@@ -35,8 +35,6 @@ from .utils import (
     parse_usage_records,
 )
 
-logger = get_logger()
-
 _SCRYPT_N = 2**14
 _SCRYPT_R = 8
 _SCRYPT_P = 1
@@ -46,8 +44,8 @@ _SCRYPT_DKLEN = 32
 class APIKeyService:
     """Service for managing API keys, permissions, and usage tracking.
 
-    Provides high-level operations for API key lifecycle management,
-    permission validation, usage tracking, and analytics.
+    Provides high-level operations for API key lifecycle management, permission validation, usage tracking, and
+    analytics.
     """
 
     def __init__(self):

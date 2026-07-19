@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Taskiq worker entry point."""
 
+from ..logging import configure_logging
 from .brokers import default_broker
+
+configure_logging()
 
 __all__ = ["default_broker"]
 

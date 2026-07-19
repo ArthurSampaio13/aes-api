@@ -10,15 +10,14 @@ except ImportError:
         "Please install it with 'pip install aiomcache' or 'pip install -e \".[memcached]\"'"
     )
 
+from loguru import logger
 from pydantic import BaseModel
 
 from ....config.settings import get_settings
-from ....logging import get_logger
 from ..base import AbstractSessionStorage
 
 T = TypeVar("T", bound=BaseModel)
 settings = get_settings()
-logger = get_logger()
 
 
 class MemcachedSessionStorage(AbstractSessionStorage[T]):

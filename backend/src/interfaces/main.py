@@ -7,6 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from ..infrastructure.app_factory import create_application, lifespan_factory
 from ..infrastructure.config.settings import get_settings
+from ..infrastructure.logging import configure_logging
 from ..infrastructure.security import validate_production_security
 from ..interfaces.api import router
 from .admin.initialize import create_admin_interface
@@ -17,6 +18,8 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan_with_security(app: FastAPI) -> AsyncGenerator[None, None]:
     """Custom lifespan that includes security validation."""
+    configure_logging()
+
     if settings.PRODUCTION_SECURITY_VALIDATION_ENABLED:
         validate_production_security(settings)
 

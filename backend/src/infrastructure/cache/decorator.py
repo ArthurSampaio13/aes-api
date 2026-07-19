@@ -4,8 +4,8 @@ from typing import Any, TypeVar, cast
 
 from fastapi import Request, Response
 from fastapi.encoders import jsonable_encoder
+from loguru import logger
 
-from ..logging import get_logger
 from .exceptions import CacheException, InvalidRequestError
 from .provider import cache_provider
 from .utils import format_extra_data, format_prefix, infer_resource_id
@@ -25,8 +25,6 @@ try:
     )
 except (ImportError, AttributeError):
     pass
-
-logger = get_logger()
 
 T = TypeVar("T", bound=Callable[..., Any])
 

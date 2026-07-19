@@ -2,11 +2,11 @@ from collections.abc import Callable
 from typing import Any, cast
 
 from fastapi import Depends, Request
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-from ...modules.common.utils.logger import get_logger
 from ...modules.rate_limit.crud import crud_rate_limits
 from ...modules.rate_limit.schemas import RateLimitSelect
 from ...modules.tier.crud import crud_tiers
@@ -17,8 +17,6 @@ from .exceptions import RateLimitException
 from .provider import increment_and_check
 from .utils import sanitize_path
 
-logger = get_logger(__name__)
-
 settings = get_settings()
 DEFAULT_LIMIT = settings.DEFAULT_RATE_LIMIT_LIMIT
 DEFAULT_PERIOD = settings.DEFAULT_RATE_LIMIT_PERIOD
@@ -27,9 +25,8 @@ DEFAULT_PERIOD = settings.DEFAULT_RATE_LIMIT_PERIOD
 async def get_optional_user(request: Request) -> dict[str, Any] | None:
     """Get the current user from the request, or None if not authenticated.
 
-    This is a simplified version that assumes the user is stored in request.state.user.
-    In a real application, you would need to implement proper user extraction from
-    authentication tokens.
+    This is a simplified version that assumes the user is stored in request.state.user. In a real application, you would
+    need to implement proper user extraction from authentication tokens.
     """
     if hasattr(request.state, "user"):
         return cast(dict[str, Any], request.state.user)

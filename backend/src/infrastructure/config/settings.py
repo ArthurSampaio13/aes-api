@@ -3,12 +3,11 @@ import os
 from enum import StrEnum
 from functools import lru_cache
 
+from loguru import logger
 from pydantic_settings import BaseSettings
 from starlette.config import Config
 
 from .enums import CacheBackend, LogFormat, LogLevel, SessionBackend, TaskiqBrokerType
-
-logger = logging.getLogger(__name__)
 
 current_file_dir = os.path.dirname(os.path.realpath(__file__))
 project_root = os.path.abspath(os.path.join(current_file_dir, "..", "..", "..", ".."))

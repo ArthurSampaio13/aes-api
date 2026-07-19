@@ -1,5 +1,4 @@
 import json
-import logging
 from asyncio import Event
 from collections.abc import AsyncGenerator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
@@ -29,8 +28,6 @@ from .database.session import create_tables
 from .middleware import ClientCacheMiddleware, SecurityHeadersMiddleware
 from .rate_limit.initialize import close_rate_limiter, initialize_rate_limiter
 from .rate_limit.middleware import RateLimiterMiddleware
-
-logger = logging.getLogger(__name__)
 
 
 async def set_threadpool_tokens(number_of_tokens: int = 100) -> None:
