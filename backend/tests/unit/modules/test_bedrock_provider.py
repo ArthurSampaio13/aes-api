@@ -50,3 +50,25 @@ async def test_bedrock_provider_returns_validation_error_on_incomplete_output():
 
     assert response.structured is None
     assert response.validation_error is not None
+
+
+@pytest.mark.asyncio
+async def test_bedrock_provider_splits_prefix_and_enables_instructions_caching():
+    provider = BedrockProvider(model_id="anthropic.claude-3-haiku-20240307-v1:0")
+    captured = {}
+
+    def capture_call(messages: list, info: AgentInfo):
+        captured["instructions"] = info.instructions
+        captured["user_content"] = messages[-1].parts[-1].content
+        captured["model_settings"] = info.model_settings
+        raise RuntimeError("stop after capture")
+
+    with provider.agent.override(model=FunctionModel(capture_call)):
+        await provider.correct(essay_text="texto do aluno", prompt="Corrija: {essay_text}", params={"temperature": 0.1})
+
+    # pydantic-ai's Agent.run strips the joined instructions string, so trailing whitespace
+    # from the static prefix does not survive to AgentInfo.instructions (see test_openrouter_provider.py).
+    assert captured["instructions"] == "Corrija:"
+    assert captured["user_content"] == "texto do aluno"
+    assert captured["model_settings"]["bedrock_cache_instructions"] == "1h"
+    assert captured["model_settings"]["temperature"] == 0.1
