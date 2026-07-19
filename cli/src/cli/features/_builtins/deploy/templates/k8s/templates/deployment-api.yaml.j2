@@ -17,6 +17,9 @@ spec:
           image: {{ "{{ .Values.api.image }}" }}
           ports:
             - containerPort: {{ "{{ .Values.api.port }}" }}
+          env:
+            - name: CODE_VERSION
+              value: {{ "{{ .Values.api.codeVersion }}" }}
           envFrom:
             - secretRef:
                 name: {{ "{{ .Release.Name }}" }}-env

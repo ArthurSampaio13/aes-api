@@ -37,10 +37,12 @@ def test_deploy_k8s_renders_valid_yaml_and_preserves_helm_template_syntax(tmp_pa
     assert chart_yaml["name"] == "aes-api"
     values_yaml = yaml.safe_load((chart_dir / "values.yaml").read_text())
     assert values_yaml["api"]["nodePort"] == 30080
+    assert values_yaml["api"]["codeVersion"] == "local"
 
     deployment_api = (chart_dir / "templates" / "deployment-api.yaml").read_text()
     assert "{{ .Release.Name }}" in deployment_api
     assert "{{ .Values.api.replicas }}" in deployment_api
+    assert "CODE_VERSION" in deployment_api
 
     service_api = (chart_dir / "templates" / "service-api.yaml").read_text()
     assert "{{ .Values.api.nodePort }}" in service_api

@@ -17,6 +17,9 @@ spec:
           image: {{ "{{ .Values.worker.image }}" }}
           command: ["taskiq", "worker", "infrastructure.taskiq.worker:default_broker", "modules.aes.worker"]
           workingDir: /app/src
+          env:
+            - name: CODE_VERSION
+              value: {{ "{{ .Values.worker.codeVersion }}" }}
           envFrom:
             - secretRef:
                 name: {{ "{{ .Release.Name }}" }}-env

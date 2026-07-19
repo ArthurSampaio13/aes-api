@@ -3,10 +3,12 @@ api:
   replicas: 1
   port: 8000
   nodePort: 30080
+  codeVersion: "local"
 
 worker:
   image: {{ project_name }}-api:local
   replicas: 1
+  codeVersion: "local"
 
 postgresql:
   enabled: true
