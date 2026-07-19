@@ -70,5 +70,5 @@ async def test_bedrock_provider_splits_prefix_and_enables_instructions_caching()
     # from the static prefix does not survive to AgentInfo.instructions (see test_openrouter_provider.py).
     assert captured["instructions"] == "Corrija:"
     assert captured["user_content"] == "texto do aluno"
-    assert captured["model_settings"]["bedrock_cache_instructions"] == "1h"
+    assert captured["model_settings"]["bedrock_cache_instructions"] is True
     assert captured["model_settings"]["temperature"] == 0.1

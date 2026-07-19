@@ -73,19 +73,3 @@ async def test_openrouter_provider_splits_static_prefix_into_cacheable_instructi
     # `'\n\n'.join(parts).strip()`), so trailing whitespace from the static prefix does not survive.
     assert captured["instructions"] == 'Responda como {"scores": {}, "feedback": "..."}. Redação:'
     assert captured["user_content"] == "texto do aluno"
-
-
-@pytest.mark.asyncio
-async def test_openrouter_provider_enables_instructions_caching():
-    provider = OpenRouterProvider(api_key="test-key", model="meta-llama/llama-3-8b-instruct:free")
-    captured = {}
-
-    def capture_call(messages: list, info: AgentInfo):
-        captured["model_settings"] = info.model_settings
-        raise RuntimeError("stop after capture")
-
-    with provider.agent.override(model=FunctionModel(capture_call)):
-        await provider.correct(essay_text="texto", prompt="corrija: {essay_text}", params={"temperature": 0.2})
-
-    assert captured["model_settings"]["openrouter_cache_instructions"] == "1h"
-    assert captured["model_settings"]["temperature"] == 0.2

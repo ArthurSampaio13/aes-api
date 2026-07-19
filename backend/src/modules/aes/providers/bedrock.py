@@ -24,7 +24,7 @@ class BedrockProvider:
                 instructions=instructions,
                 model_settings={
                     "temperature": params.get("temperature", 0.0),
-                    "bedrock_cache_instructions": "1h",
+                    "bedrock_cache_instructions": True,
                 },
             )
         except Exception as exc:

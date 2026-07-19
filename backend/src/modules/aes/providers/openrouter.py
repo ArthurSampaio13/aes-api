@@ -24,13 +24,10 @@ class OpenRouterProvider:
         instructions, user_content = split_prompt_for_caching(prompt, essay_text)
         started_at = time.monotonic()
         try:
-            result = await self.agent.run(  # type: ignore[call-overload]
+            result = await self.agent.run(
                 user_content,
                 instructions=instructions,
-                model_settings={
-                    "temperature": params.get("temperature", 0.0),
-                    "openrouter_cache_instructions": "1h",
-                },
+                model_settings={"temperature": params.get("temperature", 0.0)},
             )
         except Exception as exc:
             return ProviderResponse(
