@@ -31,13 +31,6 @@ CurrentSuperUserDep = Annotated[dict[str, Any], Depends(get_current_superuser)]
 OptionalUserDep = Annotated[dict[str, Any] | None, Depends(get_optional_user)]
 
 
-async def get_current_municipio_id(current_user: Annotated[dict[str, Any], Depends(get_current_user)]) -> int:
-    return current_user["municipio_id"]
-
-
-CurrentMunicipioIdDep = Annotated[int, Depends(get_current_municipio_id)]
-
-
 async def get_tenant_session(
     db: Annotated[AsyncSession, Depends(async_session)],
     current_user: Annotated[dict[str, Any], Depends(get_current_user)],
