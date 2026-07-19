@@ -12,6 +12,7 @@ from src.modules.aes.models.submission import Batch, Submission
 from src.modules.aes.providers.base import FIXED_CRITERIA
 from src.modules.aes.providers.mock import MockProvider
 from src.modules.aes.providers.mock_ocr import MockOCRProvider
+from src.modules.aes.providers.ocr_base import OCRResult
 from src.modules.aes.storage import ObjectStorage
 from src.modules.aes.worker import process_correction_job
 from src.modules.municipio.models import Municipio
@@ -215,3 +216,100 @@ async def test_worker_stamps_code_version_on_attempt(db_session, test_user, monk
     attempts_query = select(CorrectionAttempt).where(CorrectionAttempt.correction_job_id == job.uuid)
     attempts = (await db_session.execute(attempts_query)).scalars().all()
     assert attempts[0].code_version == "test-sha-abc123"
+
+
+class _GettableFakeS3Client:
+    def __init__(self, objects: dict[str, bytes]):
+        self.objects = objects
+
+    async def put_object(self, Bucket, Key, Body, ContentType):
+        self.objects[Key] = Body
+
+    async def get_object(self, Bucket, Key):
+        class _Body:
+            def __init__(self, data):
+                self._data = data
+
+            async def read(self):
+                return self._data
+
+        return {"Body": _Body(self.objects[Key])}
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+class _RecordingOCRProvider:
+    def __init__(self):
+        self.received_bytes: bytes | None = None
+
+    async def extract_text(self, image_bytes: bytes) -> OCRResult:
+        self.received_bytes = image_bytes
+        return OCRResult(text="texto extraído da imagem")
+
+
+@pytest.mark.asyncio
+async def test_worker_fetches_image_bytes_from_storage_for_ocr(db_session, test_user):
+    municipio = Municipio(nome="OCR Wiring Test")
+    db_session.add(municipio)
+    await db_session.commit()
+
+    rubric = Rubric(
+        version=1,
+        criteria={c: {"descricao": c, "peso": 0.2, "escala_max": 10} for c in FIXED_CRITERIA},
+        municipio_id=municipio.id,
+    )
+    template = PromptTemplate(version=1, template_text="Corrija: {essay_text}", municipio_id=municipio.id)
+    db_session.add_all([rubric, template])
+    await db_session.flush()
+    essay_prompt = EssayPrompt(
+        municipio_id=municipio.id,
+        titulo="Teste",
+        enunciado="Escreva sobre...",
+        ano_escolar="9",
+        genero_textual="dissertativo-argumentativo",
+        rubric_id=rubric.id,
+        prompt_template_id=template.id,
+    )
+    db_session.add(essay_prompt)
+    await db_session.flush()
+
+    batch = Batch(municipio_id=municipio.id, essay_prompt_id=essay_prompt.uuid, created_by_user_id=test_user["id"])
+    db_session.add(batch)
+    await db_session.flush()
+    submission = Submission(
+        municipio_id=municipio.id,
+        batch_id=batch.uuid,
+        input_type="image",
+        original_ref="submissions/x/original.jpg",
+        raw_text=None,
+    )
+    db_session.add(submission)
+    await db_session.flush()
+    job = CorrectionJob(
+        municipio_id=municipio.id, submission_id=submission.uuid, provider="mock", model="mock-v1", status="pending"
+    )
+    db_session.add(job)
+    await db_session.commit()
+
+    fake_client = _GettableFakeS3Client(objects={"submissions/x/original.jpg": b"fake-image-bytes"})
+    ocr_provider = _RecordingOCRProvider()
+
+    await process_correction_job(
+        job_id=str(job.uuid),
+        municipio_id=municipio.id,
+        db=db_session,
+        provider=MockProvider(),
+        ocr_provider=ocr_provider,
+        object_storage=ObjectStorage(bucket="test-bucket", client_factory=lambda: fake_client),
+        prompt_text="Corrija: {essay_text}",
+        prompt_version=1,
+        rubric_version=1,
+    )
+
+    assert ocr_provider.received_bytes == b"fake-image-bytes"
+    await db_session.refresh(submission)
+    assert submission.raw_text == "texto extraído da imagem"

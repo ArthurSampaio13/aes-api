@@ -46,7 +46,8 @@ async def process_correction_job(
     try:
         essay_text = submission.raw_text
         if submission.input_type == "image" and not essay_text:
-            ocr_result = await ocr_provider.extract_text(image_bytes=b"")
+            image_bytes = await object_storage.get(submission.original_ref)
+            ocr_result = await ocr_provider.extract_text(image_bytes=image_bytes)
             essay_text = ocr_result.text
             submission.raw_text = essay_text
             await db.commit()
@@ -136,7 +137,7 @@ async def run_correction_job(
         municipio_id=municipio_id,
         db=db,
         provider=get_provider(provider_name),
-        ocr_provider=get_ocr_provider("mock"),
+        ocr_provider=get_ocr_provider(get_settings().AES_OCR_PROVIDER),
         object_storage=get_object_storage(),
         prompt_text=prompt_text,
         prompt_version=prompt_version,
