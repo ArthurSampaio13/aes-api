@@ -3,7 +3,7 @@ from sqlalchemy import select
 
 from src.modules.aes.models.essay_prompt import EssayPrompt
 from src.modules.aes.models.rubric import PromptTemplate, Rubric
-from src.modules.aes.models.submission import Submission
+from src.modules.aes.models.submission import Batch, Submission
 from src.modules.aes.providers.base import FIXED_CRITERIA
 from src.modules.aes.service import AesService
 from src.modules.aes.storage import ObjectStorage
@@ -97,6 +97,9 @@ async def test_submit_image_batch_rejects_empty_image_list(db_session, test_user
             object_storage=storage,
         )
 
+    batches = (await db_session.execute(select(Batch).where(Batch.municipio_id == test_user["municipio_id"]))).scalars().all()
+    assert len(batches) == 0
+
 
 @pytest.mark.asyncio
 async def test_submit_image_batch_rejects_unsupported_content_type(db_session, test_user):
@@ -115,6 +118,9 @@ async def test_submit_image_batch_rejects_unsupported_content_type(db_session, t
             db=db_session,
             object_storage=storage,
         )
+
+    batches = (await db_session.execute(select(Batch).where(Batch.municipio_id == test_user["municipio_id"]))).scalars().all()
+    assert len(batches) == 0
 
 
 @pytest.mark.asyncio
@@ -135,6 +141,9 @@ async def test_submit_image_batch_rejects_more_than_fifty_images(db_session, tes
             object_storage=storage,
         )
 
+    batches = (await db_session.execute(select(Batch).where(Batch.municipio_id == test_user["municipio_id"]))).scalars().all()
+    assert len(batches) == 0
+
 
 @pytest.mark.asyncio
 async def test_submit_image_batch_rejects_oversized_image(db_session, test_user):
@@ -154,3 +163,6 @@ async def test_submit_image_batch_rejects_oversized_image(db_session, test_user)
             db=db_session,
             object_storage=storage,
         )
+
+    batches = (await db_session.execute(select(Batch).where(Batch.municipio_id == test_user["municipio_id"]))).scalars().all()
+    assert len(batches) == 0

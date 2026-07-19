@@ -106,23 +106,28 @@ class AesService:
             job_ids,
             municipio_id,
             data.provider,
-            prompt_template,  # type: ignore[arg-type]
-            rubric,  # type: ignore[arg-type]
+            prompt_template,
+            rubric,
         )
 
         return batch.uuid, job_ids
 
     async def _dispatch_correction_jobs(
-        self, job_ids: list[Any], municipio_id: int, provider: str, prompt_template: dict[str, Any], rubric: dict[str, Any]
+        self,
+        job_ids: list[Any],
+        municipio_id: int,
+        provider: str,
+        prompt_template: dict[str, Any] | None,
+        rubric: dict[str, Any] | None,
     ) -> None:
         for job_id in job_ids:
             await run_correction_job.kiq(  # type: ignore[call-overload]
                 job_id=str(job_id),
                 municipio_id=municipio_id,
                 provider_name=provider,
-                prompt_text=prompt_template["template_text"],
-                prompt_version=prompt_template["version"],
-                rubric_version=rubric["version"],
+                prompt_text=prompt_template["template_text"],  # type: ignore[index]
+                prompt_version=prompt_template["version"],  # type: ignore[index]
+                rubric_version=rubric["version"],  # type: ignore[index]
             )
 
     async def submit_image_batch(
@@ -190,8 +195,8 @@ class AesService:
             job_ids,
             municipio_id,
             provider,
-            prompt_template,  # type: ignore[arg-type]
-            rubric,  # type: ignore[arg-type]
+            prompt_template,
+            rubric,
         )
 
         return batch.uuid, job_ids
