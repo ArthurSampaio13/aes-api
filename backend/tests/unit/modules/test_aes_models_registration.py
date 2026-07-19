@@ -10,7 +10,9 @@ def test_importing_aes_models_alone_resolves_municipio_foreign_keys():
         [
             sys.executable,
             "-c",
-            "import src.modules.aes.models; from sqlalchemy.orm import configure_mappers; configure_mappers()",
+            "import src.modules.aes.models; "
+            "from src.infrastructure.database.session import Base; "
+            "assert 'municipios' in Base.metadata.tables",
         ],
         cwd=str(BACKEND_ROOT),
         capture_output=True,
