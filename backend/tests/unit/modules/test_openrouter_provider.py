@@ -56,16 +56,36 @@ async def test_openrouter_provider_returns_validation_error_on_model_failure():
 
 
 @pytest.mark.asyncio
-async def test_openrouter_provider_handles_literal_braces_in_prompt_template():
+async def test_openrouter_provider_splits_static_prefix_into_cacheable_instructions():
     provider = OpenRouterProvider(api_key="test-key", model="meta-llama/llama-3-8b-instruct:free")
     captured = {}
 
-    def capture_prompt(messages: list, info: AgentInfo):
-        captured["content"] = messages[-1].parts[-1].content
+    def capture_call(messages: list, info: AgentInfo):
+        captured["instructions"] = info.instructions
+        captured["user_content"] = messages[-1].parts[-1].content
         raise RuntimeError("stop after capture")
 
-    with provider.agent.override(model=FunctionModel(capture_prompt)):
+    with provider.agent.override(model=FunctionModel(capture_call)):
         prompt_with_json_example = 'Responda como {"scores": {}, "feedback": "..."}. Redação: {essay_text}'
         await provider.correct(essay_text="texto do aluno", prompt=prompt_with_json_example, params={})
 
-    assert captured["content"] == 'Responda como {"scores": {}, "feedback": "..."}. Redação: texto do aluno'
+    # pydantic-ai's Agent.run strips the joined instructions string (agent/__init__.py get_instructions:
+    # `'\n\n'.join(parts).strip()`), so trailing whitespace from the static prefix does not survive.
+    assert captured["instructions"] == 'Responda como {"scores": {}, "feedback": "..."}. Redação:'
+    assert captured["user_content"] == "texto do aluno"
+
+
+@pytest.mark.asyncio
+async def test_openrouter_provider_enables_instructions_caching():
+    provider = OpenRouterProvider(api_key="test-key", model="meta-llama/llama-3-8b-instruct:free")
+    captured = {}
+
+    def capture_call(messages: list, info: AgentInfo):
+        captured["model_settings"] = info.model_settings
+        raise RuntimeError("stop after capture")
+
+    with provider.agent.override(model=FunctionModel(capture_call)):
+        await provider.correct(essay_text="texto", prompt="corrija: {essay_text}", params={"temperature": 0.2})
+
+    assert captured["model_settings"]["openrouter_cache_instructions"] == "1h"
+    assert captured["model_settings"]["temperature"] == 0.2

@@ -10,7 +10,7 @@ from pydantic_ai import Agent
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider as OpenRouterModelProvider
 
-from ._pydantic_ai_support import extract_raw_output_text
+from ._pydantic_ai_support import extract_raw_output_text, split_prompt_for_caching
 from .base import CorrectionCandidate, ProviderResponse
 
 
@@ -21,12 +21,16 @@ class OpenRouterProvider:
         self.agent = Agent(pydantic_model, output_type=CorrectionCandidate, output_retries=0)
 
     async def correct(self, essay_text: str, prompt: str, params: dict[str, Any]) -> ProviderResponse:
-        rendered_prompt = prompt.replace("{essay_text}", essay_text)
+        instructions, user_content = split_prompt_for_caching(prompt, essay_text)
         started_at = time.monotonic()
         try:
             result = await self.agent.run(
-                rendered_prompt,
-                model_settings={"temperature": params.get("temperature", 0.0)},
+                user_content,
+                instructions=instructions,
+                model_settings={
+                    "temperature": params.get("temperature", 0.0),
+                    "openrouter_cache_instructions": "1h",
+                },
             )
         except Exception as exc:
             return ProviderResponse(
