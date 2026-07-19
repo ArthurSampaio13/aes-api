@@ -14,9 +14,9 @@ from .metrics import CORRECTION_JOBS_TOTAL, CORRECTION_LATENCY_MS, CORRECTION_TO
 from .models.correction import CorrectionAttempt, CorrectionJob, CorrectionResult
 from .models.submission import Submission
 from .providers.base import CorrectionProvider
-from .providers.mock import MockProvider
 from .providers.mock_ocr import MockOCRProvider
 from .providers.ocr_base import OCRProvider
+from .providers.registry import get_provider
 
 _TERMINAL_STATUSES = ("done", "failed")
 
@@ -113,6 +113,7 @@ async def process_correction_job(
 async def run_correction_job(
     job_id: str,
     municipio_id: int,
+    provider_name: str,
     prompt_text: str,
     prompt_version: int,
     rubric_version: int,
@@ -122,7 +123,7 @@ async def run_correction_job(
         job_id=job_id,
         municipio_id=municipio_id,
         db=db,
-        provider=MockProvider(),
+        provider=get_provider(provider_name),
         ocr_provider=MockOCRProvider(),
         prompt_text=prompt_text,
         prompt_version=prompt_version,

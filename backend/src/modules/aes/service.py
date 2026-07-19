@@ -99,6 +99,7 @@ class AesService:
             await run_correction_job.kiq(  # type: ignore[call-overload]
                 job_id=str(job_id),
                 municipio_id=municipio_id,
+                provider_name=data.provider,
                 prompt_text=prompt_template["template_text"],  # type: ignore[index]
                 prompt_version=prompt_template["version"],  # type: ignore[index]
                 rubric_version=rubric["version"],  # type: ignore[index]
