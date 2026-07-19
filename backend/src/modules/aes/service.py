@@ -4,7 +4,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..common.exceptions import BudgetExceededError, ResourceNotFoundError
+from ..common.exceptions import BudgetExceededError, ResourceNotFoundError, ValidationError
 from ..municipio.crud import crud_municipios
 from .crud import crud_correction_jobs, crud_correction_results, crud_essay_prompts, crud_prompt_templates, crud_rubrics
 from .models.correction import CorrectionAttempt, CorrectionJob
@@ -12,7 +12,12 @@ from .models.submission import Batch, Submission
 from .schemas.essay_prompt import EssayPromptCreate, EssayPromptCreateInternal, EssayPromptRead
 from .schemas.rubric import RubricCreate, RubricCreateInternal, RubricRead
 from .schemas.submission import BatchSubmitRequest, JobResultRead
+from .storage import ObjectStorage
 from .worker import run_correction_job
+
+_MAX_IMAGES_PER_BATCH = 50
+_MAX_IMAGE_BYTES = 10 * 1024 * 1024
+_ALLOWED_IMAGE_CONTENT_TYPES = {"image/jpeg": "jpg", "image/png": "png"}
 
 
 class AesService:
@@ -97,15 +102,97 @@ class AesService:
 
         await db.commit()
 
+        await self._dispatch_correction_jobs(
+            job_ids,
+            municipio_id,
+            data.provider,
+            prompt_template,  # type: ignore[arg-type]
+            rubric,  # type: ignore[arg-type]
+        )
+
+        return batch.uuid, job_ids
+
+    async def _dispatch_correction_jobs(
+        self, job_ids: list[Any], municipio_id: int, provider: str, prompt_template: dict[str, Any], rubric: dict[str, Any]
+    ) -> None:
         for job_id in job_ids:
             await run_correction_job.kiq(  # type: ignore[call-overload]
                 job_id=str(job_id),
                 municipio_id=municipio_id,
-                provider_name=data.provider,
-                prompt_text=prompt_template["template_text"],  # type: ignore[index]
-                prompt_version=prompt_template["version"],  # type: ignore[index]
-                rubric_version=rubric["version"],  # type: ignore[index]
+                provider_name=provider,
+                prompt_text=prompt_template["template_text"],
+                prompt_version=prompt_template["version"],
+                rubric_version=rubric["version"],
             )
+
+    async def submit_image_batch(
+        self,
+        essay_prompt_uuid: str,
+        images: list[tuple[bytes, str]],
+        provider: str,
+        model: str,
+        user_id: int,
+        municipio_id: int,
+        db: AsyncSession,
+        object_storage: ObjectStorage,
+    ) -> tuple[Any, list[Any]]:
+        if not images:
+            raise ValidationError("At least one image is required")
+        if len(images) > _MAX_IMAGES_PER_BATCH:
+            raise ValidationError(f"At most {_MAX_IMAGES_PER_BATCH} images are allowed per batch")
+        for content, content_type in images:
+            if content_type not in _ALLOWED_IMAGE_CONTENT_TYPES:
+                raise ValidationError(f"Unsupported image content type: {content_type}")
+            if len(content) > _MAX_IMAGE_BYTES:
+                raise ValidationError(f"Image exceeds the {_MAX_IMAGE_BYTES} byte limit")
+
+        await self.check_budget(municipio_id, db)
+        essay_prompt = await self.get_essay_prompt(essay_prompt_uuid, db)
+        prompt_template = await crud_prompt_templates.get(db=db, id=essay_prompt["prompt_template_id"])
+        rubric = await crud_rubrics.get(db=db, id=essay_prompt["rubric_id"])
+
+        batch = Batch(municipio_id=municipio_id, essay_prompt_id=essay_prompt["uuid"], created_by_user_id=user_id)
+        db.add(batch)
+        await db.flush()
+
+        job_ids = []
+        for content, content_type in images:
+            submission = Submission(
+                municipio_id=municipio_id,
+                batch_id=batch.uuid,
+                input_type="image",
+                original_ref="",
+                raw_text=None,
+            )
+            extension = _ALLOWED_IMAGE_CONTENT_TYPES[content_type]
+            submission.original_ref = await object_storage.put(
+                key=f"submissions/{submission.uuid}/original.{extension}",
+                content=content,
+                content_type=content_type,
+            )
+            db.add(submission)
+            await db.flush()
+
+            job = CorrectionJob(
+                municipio_id=municipio_id,
+                submission_id=submission.uuid,
+                provider=provider,
+                model=model,
+                status="pending",
+            )
+            db.add(job)
+            await db.flush()
+            job_ids.append(job.uuid)
+
+        await db.commit()
+
+        await self._dispatch_correction_jobs(
+            job_ids,
+            municipio_id,
+            provider,
+            prompt_template,  # type: ignore[arg-type]
+            rubric,  # type: ignore[arg-type]
+        )
 
         return batch.uuid, job_ids
 
