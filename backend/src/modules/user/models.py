@@ -39,6 +39,13 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
         default=None,
     )
 
+    municipio_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("municipios.id"),
+        index=True,
+        default=None,
+    )
+
     is_superuser: Mapped[bool] = mapped_column(default=False)
 
     google_id: Mapped[str | None] = mapped_column(String(50), unique=True, index=True, default=None)

@@ -1,4 +1,6 @@
+import importlib
 import os
+import pkgutil
 import secrets
 import sys
 from pathlib import Path
@@ -10,8 +12,10 @@ import redis as syncredis
 import redis.asyncio as aioredis
 from faker import Faker
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 from testcontainers.core.docker_client import DockerClient
 
 # mypy: disable-error-code="import-untyped"
@@ -23,9 +27,22 @@ from src.infrastructure.auth.session.schemas import CSRFToken, SessionData
 from src.infrastructure.auth.utils import get_password_hash
 from src.infrastructure.config.settings import Settings, get_settings
 from src.infrastructure.database.session import Base, async_session
+from src.infrastructure.taskiq.brokers import default_broker
 from src.interfaces.main import app
 from src.modules.tier.models import Tier
 from src.modules.user.models import User
+
+
+def _import_all_models(package_name: str) -> None:
+    package = importlib.import_module(package_name)
+    for _, module_name, _ in pkgutil.walk_packages(package.__path__, package.__name__ + "."):
+        try:
+            importlib.import_module(module_name)
+        except ImportError:
+            pass
+
+
+_import_all_models("src.modules")
 
 os.environ["SQLITE_URI"] = ":memory:"
 os.environ["SQLITE_ASYNC_PREFIX"] = "sqlite+aiosqlite:///"
@@ -83,6 +100,69 @@ async def test_db_engine(test_db_url):
     engine = create_async_engine(test_db_url, echo=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        for table in ("rubrics", "prompt_templates"):
+            await conn.execute(text(f"ALTER TABLE {table} ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP"))
+            await conn.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+            await conn.execute(text(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY"))
+            await conn.execute(
+                text(
+                    f"""
+                CREATE POLICY tenant_owns ON {table}
+                USING (
+                    municipio_id = NULLIF(current_setting('app.municipio_id', true), '')::int
+                    OR current_setting('app.is_superuser', true)::boolean
+                )
+                WITH CHECK (
+                    municipio_id = NULLIF(current_setting('app.municipio_id', true), '')::int
+                    OR current_setting('app.is_superuser', true)::boolean
+                )
+            """
+                )
+            )
+            await conn.execute(
+                text(
+                    f"""
+                CREATE POLICY platform_default_readonly ON {table}
+                FOR SELECT
+                USING (municipio_id IS NULL)
+            """
+                )
+            )
+        await conn.execute(text("ALTER TABLE essay_prompts ENABLE ROW LEVEL SECURITY"))
+        await conn.execute(text("ALTER TABLE essay_prompts FORCE ROW LEVEL SECURITY"))
+        await conn.execute(
+            text(
+                """
+                CREATE POLICY tenant_isolation ON essay_prompts
+                USING (
+                    municipio_id = NULLIF(current_setting('app.municipio_id', true), '')::int
+                    OR current_setting('app.is_superuser', true)::boolean
+                )
+                WITH CHECK (
+                    municipio_id = NULLIF(current_setting('app.municipio_id', true), '')::int
+                    OR current_setting('app.is_superuser', true)::boolean
+                )
+            """
+            )
+        )
+        for table in ("batches", "submissions", "correction_jobs", "correction_attempts", "correction_results"):
+            await conn.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+            await conn.execute(text(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY"))
+            await conn.execute(
+                text(
+                    f"""
+                CREATE POLICY tenant_isolation ON {table}
+                USING (
+                    municipio_id = NULLIF(current_setting('app.municipio_id', true), '')::int
+                    OR current_setting('app.is_superuser', true)::boolean
+                )
+                WITH CHECK (
+                    municipio_id = NULLIF(current_setting('app.municipio_id', true), '')::int
+                    OR current_setting('app.is_superuser', true)::boolean
+                )
+            """
+                )
+            )
     yield engine
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
@@ -101,6 +181,69 @@ async def test_db(test_db_engine):
 async def db_session(test_db):
     """Alias for test_db."""
     yield test_db
+
+
+@pytest_asyncio.fixture(scope="function")
+async def rls_db(test_db, test_db_url):
+    """A session running as a non-superuser role, so Postgres Row-Level Security actually applies.
+
+    testcontainers' bootstrap role is a superuser, and superusers always bypass RLS regardless of FORCE ROW LEVEL
+    SECURITY. Tests that verify RLS policies must use this fixture instead of test_db/db_session. Binds the session to a
+    single explicit AsyncConnection (not an engine/pool) so SET ROLE survives every commit in the test — a session bound
+    to a pool checks its connection back in after each commit, and with NullPool that meant every commit silently
+    dropped back to the superuser role on the next statement.
+    """
+    await test_db.execute(
+        text(
+            "DO $$ BEGIN "
+            "CREATE ROLE aes_rls_test_role NOSUPERUSER NOBYPASSRLS LOGIN PASSWORD 'aes_rls_test_role'; "
+            "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+        )
+    )
+    await test_db.execute(text("GRANT USAGE ON SCHEMA public TO aes_rls_test_role"))
+    await test_db.execute(text("GRANT ALL ON ALL TABLES IN SCHEMA public TO aes_rls_test_role"))
+    await test_db.execute(text("GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO aes_rls_test_role"))
+    await test_db.commit()
+
+    isolated_engine = create_async_engine(test_db_url, poolclass=NullPool)
+    async with isolated_engine.connect() as connection:
+        await connection.execute(text("SET ROLE aes_rls_test_role"))
+        async with AsyncSession(bind=connection, expire_on_commit=False) as session:
+            yield session
+    await isolated_engine.dispose()
+
+
+@pytest_asyncio.fixture(scope="function")
+async def rls_db_real_commits(test_db, test_db_url):
+    """A non-superuser session bound to its own engine, so session.commit() issues a real Postgres COMMIT.
+
+    rls_db binds to a single pre-opened AsyncConnection to keep SET ROLE stable across commits, but that means its
+    commit() calls never actually end the underlying transaction. That's fine for testing RLS policies themselves, but
+    it can't prove behavior that depends on a real commit boundary (e.g. a transaction-scoped GUC being reset by
+    COMMIT). This fixture connects directly as aes_rls_test_role via its own credentials on a NullPool engine, matching
+    how the taskiq worker's connection actually behaves in production: connection-per-transaction, real commits.
+    """
+    await test_db.execute(
+        text(
+            "DO $$ BEGIN "
+            "CREATE ROLE aes_rls_test_role NOSUPERUSER NOBYPASSRLS LOGIN PASSWORD 'aes_rls_test_role'; "
+            "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+        )
+    )
+    await test_db.execute(text("GRANT USAGE ON SCHEMA public TO aes_rls_test_role"))
+    await test_db.execute(text("GRANT ALL ON ALL TABLES IN SCHEMA public TO aes_rls_test_role"))
+    await test_db.execute(text("GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO aes_rls_test_role"))
+    await test_db.commit()
+
+    scheme, rest = test_db_url.split("://", 1)
+    _, host_part = rest.split("@", 1)
+    role_url = f"{scheme}://aes_rls_test_role:aes_rls_test_role@{host_part}"
+
+    role_engine = create_async_engine(role_url, poolclass=NullPool)
+    role_session_factory = async_sessionmaker(bind=role_engine, class_=AsyncSession, expire_on_commit=False)
+    async with role_session_factory() as session:
+        yield session
+    await role_engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -352,3 +495,13 @@ def mock_oauth_settings(monkeypatch):
     monkeypatch.setenv("OAUTH_GOOGLE_CLIENT_SECRET", "mock-google-client-secret")
     monkeypatch.setenv("OAUTH_GITHUB_CLIENT_ID", "mock-github-client-id")
     monkeypatch.setenv("OAUTH_GITHUB_CLIENT_SECRET", "mock-github-client-secret")
+
+
+@pytest.fixture(autouse=True)
+def noop_taskiq_broker(monkeypatch):
+    """Prevent .kiq() from requiring a live broker connection or running the task body."""
+
+    async def noop_kick(message):
+        return None
+
+    monkeypatch.setattr(default_broker, "kick", noop_kick)

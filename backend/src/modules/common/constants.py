@@ -10,6 +10,7 @@ from ...infrastructure.auth.http_exceptions import (
     UnprocessableEntityException,
 )
 from .exceptions import (
+    BudgetExceededError,
     DomainError,
     InsufficientCreditsError,
     PermissionDeniedError,
@@ -31,6 +32,7 @@ MAX_ENTITLEMENTS_PER_USER = 100
 DEFAULT_BATCH_SIZE = 100
 
 EXCEPTION_MAPPING: dict[type[DomainError], Callable[[str], HTTPException]] = {
+    BudgetExceededError: lambda message: HTTPException(status_code=402, detail=message),
     InsufficientCreditsError: lambda message: HTTPException(status_code=402, detail=message or "Insufficient credits."),
     ResourceNotFoundError: lambda message: NotFoundException(detail="The requested resource was not found."),
     ResourceExistsError: lambda message: DuplicateValueException(detail="This resource already exists."),

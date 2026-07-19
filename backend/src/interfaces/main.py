@@ -2,6 +2,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.sessions import SessionMiddleware
 
 from ..infrastructure.app_factory import create_application, lifespan_factory
@@ -66,6 +67,8 @@ app = create_application(
 
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 create_admin_interface(app)
+
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 
 @app.get("/health", tags=["System"])

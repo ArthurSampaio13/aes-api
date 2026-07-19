@@ -36,8 +36,10 @@ class UUIDMixin(MappedAsDataclass):
         ```python
         from sqlalchemy.orm import DeclarativeBase
 
+
         class MyModel(UUIDMixin, DeclarativeBase):
             name: Mapped[str] = mapped_column(String(100))
+
 
         # Usage
         model = MyModel(name="example")
@@ -48,7 +50,7 @@ class UUIDMixin(MappedAsDataclass):
     uuid: Mapped[uuid_pkg.UUID] = mapped_column(
         UUID,
         primary_key=True,
-        default=uuid_pkg.uuid4,
+        default_factory=uuid_pkg.uuid4,
         server_default=text("gen_random_uuid()"),
         init=False,
     )
@@ -87,8 +89,10 @@ class TimestampMixin(MappedAsDataclass):
         ```python
         from sqlalchemy.orm import DeclarativeBase
 
+
         class MyModel(TimestampMixin, DeclarativeBase):
             name: Mapped[str] = mapped_column(String(100))
+
 
         # Usage
         model = MyModel(name="example")
@@ -146,8 +150,10 @@ class SoftDeleteMixin(MappedAsDataclass):
         ```python
         from sqlalchemy.orm import DeclarativeBase
 
+
         class MyModel(SoftDeleteMixin, DeclarativeBase):
             name: Mapped[str] = mapped_column(String(100))
+
 
         # Usage
         model = MyModel(name="example")

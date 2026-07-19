@@ -11,6 +11,7 @@ license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "aioboto3>=13.2.0",
     "aiomcache>=0.8.2",
     "aiosqlite>=0.21.0",
     "alembic>=1.16.4",
@@ -24,6 +25,8 @@ dependencies = [
     "httpx>=0.28.1",
     "itsdangerous>=2.2.0",
     "jinja2>=3.1.6",
+    "prometheus-client>=0.20.0",
+    "prometheus-fastapi-instrumentator>=7.0.0",
     "pydantic>=2.10.6",
     "pydantic-settings>=2.7.1",
     "redis>=6.1.0",
@@ -33,6 +36,7 @@ dependencies = [
     "taskiq>=0.11.20",
     "taskiq-redis>=1.1.2",
     "taskiq-aio-pika>=0.4.3",
+    "taskiq-aio-sqs>=0.1.0",
     "user-agents>=2.2.0",
     "wtforms>=3.1.2",
 ]
@@ -100,6 +104,10 @@ warn_no_return = true
 warn_unreachable = true
 namespace_packages = true
 explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = "aioboto3"
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "aiomcache"

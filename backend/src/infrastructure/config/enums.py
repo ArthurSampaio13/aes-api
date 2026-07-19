@@ -33,6 +33,7 @@ class TaskiqBrokerType(StrEnum):
 
     REDIS = "redis"
     RABBITMQ = "rabbitmq"
+    SQS = "sqs"
 
 
 class LogLevel(StrEnum):

@@ -1,0 +1,23 @@
+api:
+  image: {{ project_name }}-api:local
+  replicas: 1
+  port: 8000
+  nodePort: 30080
+
+worker:
+  image: {{ project_name }}-api:local
+  replicas: 1
+
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: postgres
+    username: aes_app
+    password: aes_app
+    database: postgres
+
+localstack:
+  enabled: true
+  authToken: ""
+  service:
+    edgePort: 4566

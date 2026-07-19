@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 from typing import Annotated, Any
 
 from fastapi import Depends
@@ -19,6 +20,7 @@ from .auth.session.manager import SessionManager
 from .auth.session.schemas import SessionData
 from .auth.session.storage import AbstractSessionStorage
 from .database.session import async_session
+from .database.tenancy import set_tenant_context
 
 # Database
 AsyncSessionDep = Annotated[AsyncSession, Depends(async_session)]
@@ -27,6 +29,19 @@ AsyncSessionDep = Annotated[AsyncSession, Depends(async_session)]
 CurrentUserDep = Annotated[dict[str, Any], Depends(get_current_user)]
 CurrentSuperUserDep = Annotated[dict[str, Any], Depends(get_current_superuser)]
 OptionalUserDep = Annotated[dict[str, Any] | None, Depends(get_optional_user)]
+
+
+async def get_tenant_session(
+    db: Annotated[AsyncSession, Depends(async_session)],
+    current_user: Annotated[dict[str, Any], Depends(get_current_user)],
+) -> AsyncGenerator[AsyncSession, None]:
+    await set_tenant_context(
+        db, municipio_id=current_user.get("municipio_id"), is_superuser=current_user.get("is_superuser", False)
+    )
+    yield db
+
+
+TenantSessionDep = Annotated[AsyncSession, Depends(get_tenant_session)]
 
 # Sessions
 SessionManagerDep = Annotated[SessionManager, Depends(get_session_manager)]

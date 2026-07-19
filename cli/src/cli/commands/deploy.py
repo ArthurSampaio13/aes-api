@@ -24,6 +24,7 @@ class DeployMode(StrEnum):
     local = "local"
     prod = "prod"
     nginx = "nginx"
+    k8s = "k8s"
 
 
 @app.command("generate")
@@ -31,7 +32,8 @@ def generate(
     mode: DeployMode = typer.Argument(
         ...,
         help="Deployment mode to generate. Pick `local` for hot-reload dev, `prod` for "
-        "single-host production, `nginx` for production behind a reverse proxy.",
+        "single-host production, `nginx` for production behind a reverse proxy, `k8s` "
+        "for a Helm chart.",
     ),
     output_dir: Path = typer.Option(
         None,
@@ -45,7 +47,7 @@ def generate(
     yes: bool = typer.Option(False, "--yes", "-y", help="Assume yes for all prompts."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be written, don't touch disk."),
 ) -> None:
-    """Generate ``docker-compose.yml`` (and ``nginx/default.conf`` for nginx mode)."""
+    """Generate ``docker-compose.yml`` (``nginx/default.conf`` for nginx mode, a Helm chart for k8s mode)."""
     project = discover_project(output_dir)
     feature = get_feature("deploy")
     if feature is None:  # pragma: no cover — built-in feature, always present
@@ -63,6 +65,8 @@ def generate(
     }
     if mode == DeployMode.nginx:
         params["nginx_conf_target"] = target_root / "nginx" / "default.conf"
+    if mode == DeployMode.k8s:
+        params["chart_dir"] = target_root / "deploy" / "helm" / project.repo_root.name
 
     plan = feature.plan(params, project)
 
@@ -85,6 +89,14 @@ def generate(
     elif mode == DeployMode.prod:
         info("  cp backend/.env.example backend/.env  # if you haven't already")
         info("  docker compose up -d --build")
+    elif mode == DeployMode.k8s:
+        info("  make cluster-up")
+        info("  helm dependency update deploy/helm/" + project.repo_root.name)
+        info(
+            "  helm install aes-api deploy/helm/"
+            + project.repo_root.name
+            + " --set localstack.authToken=$LOCALSTACK_AUTH_TOKEN"
+        )
     else:
         info("  cp backend/.env.example backend/.env  # if you haven't already")
         info("  docker compose up -d --build")

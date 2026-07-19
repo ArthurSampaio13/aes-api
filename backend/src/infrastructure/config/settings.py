@@ -1,6 +1,7 @@
 import logging
 import os
 from enum import StrEnum
+from functools import lru_cache
 
 from pydantic_settings import BaseSettings
 from starlette.config import Config
@@ -58,8 +59,8 @@ class DatabaseSettings(BaseSettings):
     def DATABASE_URL(self) -> str:
         """Get the full database URL.
 
-        Checks for DATABASE_URL environment variable first (production pattern),
-        then falls back to constructing from individual components (development pattern).
+        Checks for DATABASE_URL environment variable first (production pattern), then falls back to constructing from
+        individual components (development pattern).
         """
         direct_url = config("DATABASE_URL", default=None)
         if direct_url:
@@ -344,6 +345,10 @@ class TaskiqSettings(BaseSettings):
     TASKIQ_RABBITMQ_PASSWORD: str = config("TASKIQ_RABBITMQ_PASSWORD", default="guest")
     TASKIQ_RABBITMQ_VHOST: str = config("TASKIQ_RABBITMQ_VHOST", default="/")
 
+    TASKIQ_SQS_ENDPOINT_URL: str | None = config("TASKIQ_SQS_ENDPOINT_URL", default=None)
+    TASKIQ_SQS_QUEUE_URL: str = config("TASKIQ_SQS_QUEUE_URL", default="")
+    TASKIQ_SQS_REGION: str = config("TASKIQ_SQS_REGION", default="us-east-1")
+
     TASKIQ_WORKER_CONCURRENCY: int = config("TASKIQ_WORKER_CONCURRENCY", default=2, cast=int)
     TASKIQ_MAX_TASKS_PER_WORKER: int = config("TASKIQ_MAX_TASKS_PER_WORKER", default=1000, cast=int)
 
@@ -362,6 +367,15 @@ class TaskiqSettings(BaseSettings):
             raise ValueError(f"Unsupported broker type: {self.TASKIQ_BROKER_TYPE}")
 
 
+class AESSettings(BaseSettings):
+    """Object storage settings for the AES module (S3-compatible: real S3 in prod, LocalStack in dev)."""
+
+    AES_STORAGE_ENDPOINT_URL: str | None = config("AES_STORAGE_ENDPOINT_URL", default=None)
+    AES_STORAGE_BUCKET: str = config("AES_STORAGE_BUCKET", default="aes-submissions")
+    AES_STORAGE_ACCESS_KEY: str = config("AES_STORAGE_ACCESS_KEY", default="test")
+    AES_STORAGE_SECRET_KEY: str = config("AES_STORAGE_SECRET_KEY", default="test")
+
+
 class Settings(
     EnvironmentSettings,
     DatabaseSettings,
@@ -378,19 +392,21 @@ class Settings(
     SecuritySettings,
     LoggingSettings,
     TaskiqSettings,
+    AESSettings,
 ):
     """Main settings class that combines all setting categories."""
 
     pass
 
 
-settings = Settings()
-
-
+@lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Get application settings.
 
     Returns:
         The application settings.
     """
-    return settings
+    return Settings()
+
+
+settings = get_settings()
