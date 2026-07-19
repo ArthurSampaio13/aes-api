@@ -13,6 +13,7 @@ class MockProvider:
         candidate_dict = {
             "scores": {c: {"nota": 3, "justificativa": f"Avaliação simulada para {c}."} for c in FIXED_CRITERIA},
             "feedback": "Feedback simulado: revise a coesão entre parágrafos.",
+            "sugestao_acionavel": "Releia o segundo parágrafo e explicite a relação de causa e consequência.",
         }
         try:
             structured = CorrectionCandidate.model_validate(candidate_dict)

@@ -3,11 +3,13 @@
 All five rubric criteria are fixed by AGENTS.md.
 """
 
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 FIXED_CRITERIA = ["adequacao_tema", "estrutura_textual", "coesao_coerencia", "adequacao_ling", "vocabulario"]
+
+CriterionName = Literal["adequacao_tema", "estrutura_textual", "coesao_coerencia", "adequacao_ling", "vocabulario"]
 
 
 class CriterionScore(BaseModel):
@@ -16,8 +18,16 @@ class CriterionScore(BaseModel):
 
 
 class CorrectionCandidate(BaseModel):
-    scores: dict[str, CriterionScore]
+    scores: dict[CriterionName, CriterionScore]
     feedback: str = Field(min_length=1)
+    sugestao_acionavel: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _require_all_criteria(self) -> "CorrectionCandidate":
+        missing = set(FIXED_CRITERIA) - set(self.scores)
+        if missing:
+            raise ValueError(f"missing scores for criteria: {sorted(missing)}")
+        return self
 
 
 class ProviderResponse(BaseModel):
