@@ -42,6 +42,7 @@ class CorrectionAttempt(Base, UUIDMixin, TimestampMixin):
     raw_response_ref: Mapped[str | None] = mapped_column(String(500), default=None)
     validation_errors: Mapped[dict[str, Any] | None] = mapped_column(JSONB, default=None)
     error_message: Mapped[str | None] = mapped_column(Text, default=None)
+    code_version: Mapped[str | None] = mapped_column(String(100), default=None)
 
 
 class CorrectionResult(Base, UUIDMixin, TimestampMixin):

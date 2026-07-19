@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from taskiq import TaskiqDepends
 
+from ...infrastructure.config.settings import get_settings
 from ...infrastructure.database.tenancy import set_tenant_context
 from ...infrastructure.taskiq.brokers import default_broker
 from ...infrastructure.taskiq.deps import get_db_session
@@ -83,6 +84,7 @@ async def process_correction_job(
                 tokens_out=response.tokens_out,
                 latency_ms=latency_ms,
                 raw_response_ref=raw_response_ref,
+                code_version=get_settings().CODE_VERSION,
                 validation_errors={"error": response.validation_error} if response.validation_error else None,
                 error_message=response.validation_error,
             )

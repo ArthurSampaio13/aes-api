@@ -3,6 +3,7 @@ from typing import Any
 import pytest
 from sqlalchemy import select
 
+from src.infrastructure.config.settings import get_settings
 from src.modules.aes.metrics import CORRECTION_JOBS_TOTAL
 from src.modules.aes.models.correction import CorrectionAttempt, CorrectionJob, CorrectionResult
 from src.modules.aes.models.essay_prompt import EssayPrompt
@@ -190,3 +191,27 @@ async def test_worker_persists_raw_response_to_object_storage(db_session, test_u
     assert len(attempts) == 1
     assert attempts[0].raw_response_ref is not None
     assert "raw_response.txt" in attempts[0].raw_response_ref
+
+
+@pytest.mark.asyncio
+async def test_worker_stamps_code_version_on_attempt(db_session, test_user, monkeypatch):
+    monkeypatch.setattr(get_settings(), "CODE_VERSION", "test-sha-abc123")
+
+    municipio, job = await _build_pending_job(db_session, test_user, "Code Version Test")
+    storage = ObjectStorage(bucket="test-bucket", client_factory=lambda: _FakeS3Client())
+
+    await process_correction_job(
+        job_id=str(job.uuid),
+        municipio_id=municipio.id,
+        db=db_session,
+        provider=MockProvider(),
+        ocr_provider=MockOCRProvider(),
+        object_storage=storage,
+        prompt_text="Corrija: {essay_text}",
+        prompt_version=1,
+        rubric_version=1,
+    )
+
+    attempts_query = select(CorrectionAttempt).where(CorrectionAttempt.correction_job_id == job.uuid)
+    attempts = (await db_session.execute(attempts_query)).scalars().all()
+    assert attempts[0].code_version == "test-sha-abc123"

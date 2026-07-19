@@ -377,6 +377,7 @@ class AESSettings(BaseSettings):
     OPENROUTER_API_KEY: str | None = config("OPENROUTER_API_KEY", default=None)
     OPENROUTER_MODEL: str = config("OPENROUTER_MODEL", default="meta-llama/llama-3-8b-instruct:free")
     BEDROCK_MODEL_ID: str = config("BEDROCK_MODEL_ID", default="anthropic.claude-3-haiku-20240307-v1:0")
+    CODE_VERSION: str | None = config("CODE_VERSION", default=None)
 
 
 class Settings(
