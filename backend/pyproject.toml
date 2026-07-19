@@ -39,6 +39,7 @@ dependencies = [
     "taskiq-aio-sqs>=0.1.0",
     "user-agents>=2.2.0",
     "wtforms>=3.1.2",
+    "loguru>=0.7.3",
 ]
 
 [project.optional-dependencies]

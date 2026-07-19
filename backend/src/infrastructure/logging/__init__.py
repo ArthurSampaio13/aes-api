@@ -1,34 +1,15 @@
-"""Centralized logging infrastructure.
+"""Loguru-based logging setup.
 
-This module provides a unified logging system that integrates with the application's
-settings and provides environment-aware configuration. It replaces scattered
-logging.getLogger(__name__) calls with a centralized, configurable system.
-
-Key Features:
-- Environment-aware logging configuration
-- Integration with application settings
-- Structured logging support
-- Consistent formatting across all modules
-- Performance optimized for production
-
-Usage:
-    ```python
-    from infrastructure.logging import get_logger
-
-    logger = get_logger()  # Auto-detects module name
-    logger.info("Application started")
-
-    # Or with explicit name
-    logger = get_logger("my.module")
-    logger.debug("Debug information", extra={"user_id": 123})
-    ```
+Import the logger directly: `from loguru import logger`.
 """
 
-from .config import setup_logging_configuration
-from .factory import configure_logging, get_logger
+from .factory import get_logger
+from .loguru_setup import configure_logging, generate_correlation_id, get_correlation_id, set_correlation_id
 
 __all__ = [
-    "get_logger",
     "configure_logging",
-    "setup_logging_configuration",
+    "generate_correlation_id",
+    "get_correlation_id",
+    "get_logger",
+    "set_correlation_id",
 ]
