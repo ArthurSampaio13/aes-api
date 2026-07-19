@@ -6,15 +6,14 @@ from src.modules.municipio.models import Municipio
 
 
 @pytest.mark.asyncio
-async def test_create_essay_prompt_with_support_texts(auth_client, db_session):
+async def test_create_essay_prompt_with_support_texts(auth_client, db_session, test_user):
     municipio = Municipio(nome="Garanhuns EssayPrompt")
     db_session.add(municipio)
     await db_session.commit()
+    test_user["municipio_id"] = municipio.id
 
     criteria = {c: {"descricao": c, "peso": 0.2, "escala_max": 10} for c in FIXED_CRITERIA}
-    rubric_resp = await auth_client.post(
-        "/api/v1/aes/rubrics", json={"municipio_id": municipio.id, "version": 1, "criteria": criteria}
-    )
+    rubric_resp = await auth_client.post("/api/v1/aes/rubrics", json={"version": 1, "criteria": criteria})
     rubric_id = rubric_resp.json()["id"]
 
     template = PromptTemplate(municipio_id=municipio.id, version=1, template_text="Corrija: {essay_text}")
@@ -24,7 +23,6 @@ async def test_create_essay_prompt_with_support_texts(auth_client, db_session):
     response = await auth_client.post(
         "/api/v1/aes/essay-prompts",
         json={
-            "municipio_id": municipio.id,
             "titulo": "A importância da leitura",
             "enunciado": "Escreva um texto dissertativo-argumentativo sobre a importância da leitura.",
             "ano_escolar": "9",

@@ -14,7 +14,6 @@ class CriterionDefinition(BaseModel):
 class RubricCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    municipio_id: int | None = None
     version: Annotated[int, Field(ge=1)]
     criteria: dict[str, CriterionDefinition]
 
@@ -24,6 +23,10 @@ class RubricCreate(BaseModel):
         if missing:
             raise ValueError(f"Missing required criteria: {sorted(missing)}")
         return self
+
+
+class RubricCreateInternal(RubricCreate):
+    municipio_id: int | None = None
 
 
 class RubricRead(BaseModel):

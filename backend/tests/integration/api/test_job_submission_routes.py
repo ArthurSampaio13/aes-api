@@ -13,9 +13,7 @@ async def _create_essay_prompt(auth_client, db_session, test_user):
     test_user["municipio_id"] = municipio.id
 
     criteria = {c: {"descricao": c, "peso": 0.2, "escala_max": 10} for c in FIXED_CRITERIA}
-    rubric_resp = await auth_client.post(
-        "/api/v1/aes/rubrics", json={"municipio_id": municipio.id, "version": 1, "criteria": criteria}
-    )
+    rubric_resp = await auth_client.post("/api/v1/aes/rubrics", json={"version": 1, "criteria": criteria})
     template = PromptTemplate(municipio_id=municipio.id, version=1, template_text="Corrija: {essay_text}")
     db_session.add(template)
     await db_session.commit()
@@ -23,7 +21,6 @@ async def _create_essay_prompt(auth_client, db_session, test_user):
     prompt_resp = await auth_client.post(
         "/api/v1/aes/essay-prompts",
         json={
-            "municipio_id": municipio.id,
             "titulo": "Teste",
             "enunciado": "Escreva sobre...",
             "ano_escolar": "9",
@@ -69,9 +66,7 @@ async def test_submit_batch_resolves_real_prompt_and_rubric_version(auth_client,
     test_user["municipio_id"] = municipio.id
 
     criteria = {c: {"descricao": c, "peso": 0.2, "escala_max": 10} for c in FIXED_CRITERIA}
-    rubric_resp = await auth_client.post(
-        "/api/v1/aes/rubrics", json={"municipio_id": municipio.id, "version": 3, "criteria": criteria}
-    )
+    rubric_resp = await auth_client.post("/api/v1/aes/rubrics", json={"version": 3, "criteria": criteria})
     template = PromptTemplate(municipio_id=municipio.id, version=5, template_text="Modelo customizado: {essay_text}")
     db_session.add(template)
     await db_session.commit()
@@ -79,7 +74,6 @@ async def test_submit_batch_resolves_real_prompt_and_rubric_version(auth_client,
     prompt_resp = await auth_client.post(
         "/api/v1/aes/essay-prompts",
         json={
-            "municipio_id": municipio.id,
             "titulo": "Teste",
             "enunciado": "Escreva sobre...",
             "ano_escolar": "9",

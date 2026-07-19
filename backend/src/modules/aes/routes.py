@@ -14,9 +14,11 @@ router = APIRouter(tags=["AES"])
 
 
 @router.post("/rubrics", status_code=201, response_model=RubricRead)
-async def create_rubric(data: RubricCreate, db: TenantSessionDep, aes_service: AesServiceDep) -> dict[str, Any]:
+async def create_rubric(
+    data: RubricCreate, db: TenantSessionDep, current_user: CurrentUserDep, aes_service: AesServiceDep
+) -> dict[str, Any]:
     try:
-        return await aes_service.create_rubric(data, db)
+        return await aes_service.create_rubric(data, municipio_id=current_user["municipio_id"], db=db)
     except Exception as e:
         http_exception = handle_exception(e)
         if http_exception:
@@ -36,9 +38,11 @@ async def get_rubric(rubric_id: int, db: TenantSessionDep, aes_service: AesServi
 
 
 @router.post("/essay-prompts", status_code=201, response_model=EssayPromptRead)
-async def create_essay_prompt(data: EssayPromptCreate, db: TenantSessionDep, aes_service: AesServiceDep) -> dict[str, Any]:
+async def create_essay_prompt(
+    data: EssayPromptCreate, db: TenantSessionDep, current_user: CurrentUserDep, aes_service: AesServiceDep
+) -> dict[str, Any]:
     try:
-        return await aes_service.create_essay_prompt(data, db)
+        return await aes_service.create_essay_prompt(data, municipio_id=current_user["municipio_id"], db=db)
     except Exception as e:
         http_exception = handle_exception(e)
         if http_exception:

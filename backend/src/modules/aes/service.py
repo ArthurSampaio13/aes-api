@@ -9,15 +9,16 @@ from ..municipio.crud import crud_municipios
 from .crud import crud_correction_jobs, crud_correction_results, crud_essay_prompts, crud_prompt_templates, crud_rubrics
 from .models.correction import CorrectionAttempt, CorrectionJob
 from .models.submission import Batch, Submission
-from .schemas.essay_prompt import EssayPromptCreate, EssayPromptRead
-from .schemas.rubric import RubricCreate, RubricRead
+from .schemas.essay_prompt import EssayPromptCreate, EssayPromptCreateInternal, EssayPromptRead
+from .schemas.rubric import RubricCreate, RubricCreateInternal, RubricRead
 from .schemas.submission import BatchSubmitRequest, JobResultRead
 from .worker import run_correction_job
 
 
 class AesService:
-    async def create_rubric(self, data: RubricCreate, db: AsyncSession) -> dict[str, Any]:
-        return await crud_rubrics.create(db=db, object=data, schema_to_select=RubricRead)
+    async def create_rubric(self, data: RubricCreate, municipio_id: int, db: AsyncSession) -> dict[str, Any]:
+        full_data = RubricCreateInternal(municipio_id=municipio_id, **data.model_dump())
+        return await crud_rubrics.create(db=db, object=full_data, schema_to_select=RubricRead)
 
     async def get_rubric(self, rubric_id: int, db: AsyncSession) -> dict[str, Any]:
         rubric = await crud_rubrics.get(db=db, id=rubric_id, schema_to_select=RubricRead)
@@ -25,14 +26,15 @@ class AesService:
             raise ResourceNotFoundError(f"Rubric {rubric_id} not found")
         return rubric
 
-    async def create_essay_prompt(self, data: EssayPromptCreate, db: AsyncSession) -> dict[str, Any]:
+    async def create_essay_prompt(self, data: EssayPromptCreate, municipio_id: int, db: AsyncSession) -> dict[str, Any]:
         rubric_exists = await crud_rubrics.exists(db=db, id=data.rubric_id)
         if not rubric_exists:
             raise ResourceNotFoundError(f"Rubric {data.rubric_id} not found")
         template_exists = await crud_prompt_templates.exists(db=db, id=data.prompt_template_id)
         if not template_exists:
             raise ResourceNotFoundError(f"PromptTemplate {data.prompt_template_id} not found")
-        return await crud_essay_prompts.create(db=db, object=data, schema_to_select=EssayPromptRead)
+        full_data = EssayPromptCreateInternal(municipio_id=municipio_id, **data.model_dump())
+        return await crud_essay_prompts.create(db=db, object=full_data, schema_to_select=EssayPromptRead)
 
     async def get_essay_prompt(self, essay_prompt_uuid: str, db: AsyncSession) -> dict[str, Any]:
         prompt = await crud_essay_prompts.get(db=db, uuid=essay_prompt_uuid, schema_to_select=EssayPromptRead)

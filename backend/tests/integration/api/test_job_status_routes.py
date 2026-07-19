@@ -31,16 +31,13 @@ async def test_job_status_then_results_after_worker_runs(auth_client, db_session
     test_user["municipio_id"] = municipio.id
 
     criteria = {c: {"descricao": c, "peso": 0.2, "escala_max": 10} for c in FIXED_CRITERIA}
-    rubric_resp = await auth_client.post(
-        "/api/v1/aes/rubrics", json={"municipio_id": municipio.id, "version": 1, "criteria": criteria}
-    )
+    rubric_resp = await auth_client.post("/api/v1/aes/rubrics", json={"version": 1, "criteria": criteria})
     template = PromptTemplate(municipio_id=municipio.id, version=1, template_text="Corrija: {essay_text}")
     db_session.add(template)
     await db_session.commit()
     prompt_resp = await auth_client.post(
         "/api/v1/aes/essay-prompts",
         json={
-            "municipio_id": municipio.id,
             "titulo": "Teste",
             "enunciado": "Escreva sobre...",
             "ano_escolar": "9",
