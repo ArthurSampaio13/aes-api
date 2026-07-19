@@ -49,6 +49,7 @@ def test_deploy_k8s_renders_valid_yaml_and_preserves_helm_template_syntax(tmp_pa
     deployment_worker = (chart_dir / "templates" / "deployment-worker.yaml").read_text()
     assert "{{ .Values.worker.image }}" in deployment_worker
     assert "modules.aes.worker" in deployment_worker
+    assert "CODE_VERSION" in deployment_worker
 
     job_migrate = (chart_dir / "templates" / "job-migrate.yaml").read_text()
     assert "{{ .Release.Name }}" in job_migrate
