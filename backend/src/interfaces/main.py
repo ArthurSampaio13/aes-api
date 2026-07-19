@@ -1,6 +1,7 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+import pyfiglet
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.sessions import SessionMiddleware
@@ -18,6 +19,7 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan_with_security(app: FastAPI) -> AsyncGenerator[None, None]:
     """Custom lifespan that includes security validation."""
+    print(pyfiglet.figlet_format("AES-API"))
     configure_logging()
 
     if settings.PRODUCTION_SECURITY_VALIDATION_ENABLED:

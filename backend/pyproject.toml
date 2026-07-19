@@ -29,6 +29,7 @@ dependencies = [
     "prometheus-fastapi-instrumentator>=7.0.0",
     "pydantic>=2.10.6",
     "pydantic-settings>=2.7.1",
+    "pyfiglet",
     "redis>=6.1.0",
     "sqladmin>=0.22.0",
     "sqlalchemy>=2.0.37",
