@@ -155,14 +155,14 @@ async def test_validate_api_key_success(api_key_service, db_session: AsyncSessio
     # Add permission for the key
     permission_data = KeyPermissionCreate(
         api_key_id=test_api_key["id"],
-        resource=KeyPermissionResource.CONVERSATIONS,
+        resource=KeyPermissionResource.RUBRICS,
         action=KeyPermissionAction.READ,
         is_allowed=True,
     )
     await crud_key_permissions.create(db=db_session, object=permission_data)
 
     validation = await api_key_service.validate_api_key(
-        api_key=test_api_key["api_key"], resource="conversations", action="read", db=db_session
+        api_key=test_api_key["api_key"], resource="rubrics", action="read", db=db_session
     )
 
     assert validation.is_valid is True

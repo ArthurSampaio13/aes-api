@@ -16,13 +16,9 @@ class KeyStatus(StrEnum):
 class KeyPermissionResource(StrEnum):
     """API key permission resources."""
 
-    CONVERSATIONS = "conversations"
-    CREDITS = "credits"
-    AI_USAGE = "ai_usage"
-    USER_PROFILE = "user_profile"
-    ANALYTICS = "analytics"
-    ADMIN = "admin"
-    BILLING = "billing"
+    BATCHES = "batches"
+    RUBRICS = "rubrics"
+    ESSAY_PROMPTS = "essay_prompts"
     API_KEYS = "api_keys"
     WILDCARD = "*"
 
