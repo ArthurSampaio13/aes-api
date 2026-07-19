@@ -1,4 +1,7 @@
-from ...municipio.models import Municipio  # noqa: F401  registers `municipios` so every AES model's FOREIGN KEY("municipios.id") resolves when only `aes.models` is imported (e.g. the standalone Taskiq worker process) — not re-exported, Municipio isn't an AES model
+# Registers `municipios` so AES models' FOREIGN KEY("municipios.id") resolves when only
+# `aes.models` is imported (e.g. the standalone Taskiq worker process). Not an AES model,
+# not re-exported — import kept only for this side effect.
+from ...municipio.models import Municipio  # noqa: F401
 from .correction import CorrectionAttempt, CorrectionJob, CorrectionResult
 from .essay_prompt import EssayPrompt
 from .rubric import PromptTemplate, Rubric
