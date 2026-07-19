@@ -42,24 +42,19 @@ app = create_application(
     docs_production_dependency=None,
     enable_gzip=None,
     openapi_prefix=None,
-    title="FastAPI Boilerplate",
-    summary="A modular FastAPI starter with a plugin system",
+    title="AES-API",
+    summary="Assistive LLM-based essay correction for Ensino Fundamental",
     description="""
-    # FastAPI Boilerplate
+    # AES-API
 
-    A modern FastAPI starter with:
+    A rubric-based, traceable essay-correction backend for Brazilian Ensino Fundamental, built as a TCC artifact.
 
-    * Vertical-slice modules and a clean infrastructure layer
-    * Session-based auth with OAuth providers
-    * Swappable cache, queue, and rate-limit backends
-    * SQLAdmin admin UI
+    * Asynchronous batch correction jobs with configurable, versioned rubrics and prompts
+    * LLM provider abstraction (OpenRouter, Amazon Bedrock) with schema-validated structured output
+    * Multi-tenant per-município data isolation via PostgreSQL RLS
     """,
     version="0.18.0",
-    contact={
-        "name": "Benav Labs",
-        "url": "https://github.com/benavlabs/FastAPI-boilerplate",
-        "email": "contact@benav.io",
-    },
+    contact=None,
     license_info={
         "name": "MIT",
         "identifier": "MIT",
