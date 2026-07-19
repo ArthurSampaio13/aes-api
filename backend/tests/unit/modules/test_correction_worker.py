@@ -11,8 +11,23 @@ from src.modules.aes.models.submission import Batch, Submission
 from src.modules.aes.providers.base import FIXED_CRITERIA
 from src.modules.aes.providers.mock import MockProvider
 from src.modules.aes.providers.mock_ocr import MockOCRProvider
+from src.modules.aes.storage import ObjectStorage
 from src.modules.aes.worker import process_correction_job
 from src.modules.municipio.models import Municipio
+
+
+class _FakeS3Client:
+    def __init__(self):
+        self.put_calls: list[dict] = []
+
+    async def put_object(self, Bucket, Key, Body, ContentType):
+        self.put_calls.append({"Bucket": Bucket, "Key": Key, "Body": Body, "ContentType": ContentType})
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
 
 
 async def _build_pending_job(db_session, test_user, nome: str) -> tuple[Municipio, CorrectionJob]:
@@ -68,6 +83,7 @@ async def test_worker_persists_attempt_and_result_on_success(db_session, test_us
         db=db_session,
         provider=MockProvider(),
         ocr_provider=MockOCRProvider(),
+        object_storage=ObjectStorage(bucket="test-bucket", client_factory=lambda: _FakeS3Client()),
         prompt_text="Corrija: {essay_text}",
         prompt_version=1,
         rubric_version=1,
@@ -102,6 +118,7 @@ async def test_worker_redelivery_of_done_job_is_a_no_op(db_session, test_user):
             db=db_session,
             provider=MockProvider(),
             ocr_provider=MockOCRProvider(),
+            object_storage=ObjectStorage(bucket="test-bucket", client_factory=lambda: _FakeS3Client()),
             prompt_text="Corrija: {essay_text}",
             prompt_version=1,
             rubric_version=1,
@@ -136,6 +153,7 @@ async def test_worker_marks_job_failed_when_provider_raises(db_session, test_use
             db=db_session,
             provider=_RaisingProvider(),
             ocr_provider=MockOCRProvider(),
+            object_storage=ObjectStorage(bucket="test-bucket", client_factory=lambda: _FakeS3Client()),
             prompt_text="Corrija: {essay_text}",
             prompt_version=1,
             rubric_version=1,
@@ -143,3 +161,32 @@ async def test_worker_marks_job_failed_when_provider_raises(db_session, test_use
 
     refetched = (await db_session.execute(select(CorrectionJob).where(CorrectionJob.uuid == job_uuid))).scalar_one()
     assert refetched.status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_worker_persists_raw_response_to_object_storage(db_session, test_user):
+    municipio, job = await _build_pending_job(db_session, test_user, "Raw Response Storage Test")
+    fake_client = _FakeS3Client()
+    storage = ObjectStorage(bucket="test-bucket", client_factory=lambda: fake_client)
+
+    await process_correction_job(
+        job_id=str(job.uuid),
+        municipio_id=municipio.id,
+        db=db_session,
+        provider=MockProvider(),
+        ocr_provider=MockOCRProvider(),
+        object_storage=storage,
+        prompt_text="Corrija: {essay_text}",
+        prompt_version=1,
+        rubric_version=1,
+    )
+
+    assert len(fake_client.put_calls) == 1
+    assert fake_client.put_calls[0]["Bucket"] == "test-bucket"
+    assert "raw_response.txt" in fake_client.put_calls[0]["Key"]
+
+    attempts_query = select(CorrectionAttempt).where(CorrectionAttempt.correction_job_id == job.uuid)
+    attempts = (await db_session.execute(attempts_query)).scalars().all()
+    assert len(attempts) == 1
+    assert attempts[0].raw_response_ref is not None
+    assert "raw_response.txt" in attempts[0].raw_response_ref

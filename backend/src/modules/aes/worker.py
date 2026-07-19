@@ -14,9 +14,9 @@ from .metrics import CORRECTION_JOBS_TOTAL, CORRECTION_LATENCY_MS, CORRECTION_TO
 from .models.correction import CorrectionAttempt, CorrectionJob, CorrectionResult
 from .models.submission import Submission
 from .providers.base import CorrectionProvider
-from .providers.mock_ocr import MockOCRProvider
 from .providers.ocr_base import OCRProvider
-from .providers.registry import get_provider
+from .providers.registry import get_ocr_provider, get_provider
+from .storage import ObjectStorage, get_object_storage
 
 _TERMINAL_STATUSES = ("done", "failed")
 
@@ -27,6 +27,7 @@ async def process_correction_job(
     db: AsyncSession,
     provider: CorrectionProvider,
     ocr_provider: OCRProvider,
+    object_storage: ObjectStorage,
     prompt_text: str,
     prompt_version: int,
     rubric_version: int,
@@ -60,6 +61,14 @@ async def process_correction_job(
                 "success" if response.structured is not None else ("retry" if attempt_number < job.max_attempts else "failed")
             )
 
+            raw_response_ref: str | None = None
+            if response.raw_text:
+                raw_response_ref = await object_storage.put(
+                    key=f"correction-attempts/{job.uuid}/attempt-{attempt_number}/raw_response.txt",
+                    content=response.raw_text.encode("utf-8"),
+                    content_type="text/plain",
+                )
+
             attempt = CorrectionAttempt(
                 municipio_id=job.municipio_id,
                 correction_job_id=job.uuid,
@@ -73,6 +82,7 @@ async def process_correction_job(
                 tokens_in=response.tokens_in,
                 tokens_out=response.tokens_out,
                 latency_ms=latency_ms,
+                raw_response_ref=raw_response_ref,
                 validation_errors={"error": response.validation_error} if response.validation_error else None,
                 error_message=response.validation_error,
             )
@@ -124,7 +134,8 @@ async def run_correction_job(
         municipio_id=municipio_id,
         db=db,
         provider=get_provider(provider_name),
-        ocr_provider=MockOCRProvider(),
+        ocr_provider=get_ocr_provider("mock"),
+        object_storage=get_object_storage(),
         prompt_text=prompt_text,
         prompt_version=prompt_version,
         rubric_version=rubric_version,
