@@ -1,38 +1,28 @@
-"""Amazon Bedrock provider — Converse API via aioboto3."""
+"""Amazon Bedrock provider — pydantic-ai Agent over the Bedrock Converse API."""
 
 import time
-from collections.abc import Callable
 from typing import Any
 
-import aioboto3
-from pydantic import ValidationError
+from pydantic_ai import Agent
+from pydantic_ai.models.bedrock import BedrockConverseModel
 
+from ._pydantic_ai_support import extract_raw_output_text
 from .base import CorrectionCandidate, ProviderResponse
 
 
 class BedrockProvider:
-    def __init__(self, model_id: str, client_factory: Callable[[], Any] | None = None) -> None:
-        self._model_id = model_id
-        self._client_factory = client_factory or self._default_client_factory
-
-    def _default_client_factory(self) -> Any:
-        session = aioboto3.Session()
-        return session.client("bedrock-runtime")
+    def __init__(self, model_id: str) -> None:
+        pydantic_model = BedrockConverseModel(model_id)
+        self.agent = Agent(pydantic_model, output_type=CorrectionCandidate, output_retries=0)
 
     async def correct(self, essay_text: str, prompt: str, params: dict[str, Any]) -> ProviderResponse:
         rendered_prompt = prompt.replace("{essay_text}", essay_text)
         started_at = time.monotonic()
         try:
-            async with self._client_factory() as client:
-                response = await client.converse(
-                    modelId=self._model_id,
-                    messages=[{"role": "user", "content": [{"text": rendered_prompt}]}],
-                    inferenceConfig={"temperature": params.get("temperature", 0.0)},
-                )
-                content = response["output"]["message"]["content"][0]["text"]
-                usage = response.get("usage") or {}
-                tokens_in = usage.get("inputTokens", 0)
-                tokens_out = usage.get("outputTokens", 0)
+            result = await self.agent.run(
+                rendered_prompt,
+                model_settings={"temperature": params.get("temperature", 0.0)},
+            )
         except Exception as exc:
             return ProviderResponse(
                 raw_text="",
@@ -42,20 +32,13 @@ class BedrockProvider:
                 latency_ms=int((time.monotonic() - started_at) * 1000),
                 validation_error=str(exc),
             )
-        latency_ms = int((time.monotonic() - started_at) * 1000)
 
-        try:
-            structured = CorrectionCandidate.model_validate_json(content)
-            validation_error = None
-        except ValidationError as exc:
-            structured = None
-            validation_error = str(exc)
-
+        usage = result.usage()
         return ProviderResponse(
-            raw_text=content,
-            structured=structured,
-            tokens_in=tokens_in,
-            tokens_out=tokens_out,
-            latency_ms=latency_ms,
-            validation_error=validation_error,
+            raw_text=extract_raw_output_text(result.new_messages()),
+            structured=result.output,
+            tokens_in=usage.input_tokens,
+            tokens_out=usage.output_tokens,
+            latency_ms=int((time.monotonic() - started_at) * 1000),
+            validation_error=None,
         )
