@@ -4,7 +4,7 @@ from fastapi import APIRouter, Request
 
 from ...infrastructure.auth.http_exceptions import HTTPException
 from ...infrastructure.cache import cache
-from ...infrastructure.dependencies import CurrentUserDep, TenantSessionDep
+from ...infrastructure.dependencies import CurrentMunicipioIdDep, CurrentUserDep, TenantSessionDep
 from ..common.utils.error_handler import handle_exception
 from .dependencies import AesServiceDep
 from .schemas.essay_prompt import EssayPromptCreate, EssayPromptRead
@@ -28,8 +28,14 @@ async def create_rubric(
 
 
 @router.get("/rubrics/{rubric_id}", response_model=RubricRead)
-@cache(key_prefix="aes_rubric", resource_id_name="rubric_id", expiration=3600)
-async def get_rubric(request: Request, rubric_id: int, db: TenantSessionDep, aes_service: AesServiceDep) -> dict[str, Any]:
+@cache(key_prefix="aes_rubric:{municipio_id}", resource_id_name="rubric_id", expiration=3600)
+async def get_rubric(
+    request: Request,
+    rubric_id: int,
+    municipio_id: CurrentMunicipioIdDep,
+    db: TenantSessionDep,
+    aes_service: AesServiceDep,
+) -> dict[str, Any]:
     try:
         return await aes_service.get_rubric(rubric_id, db)
     except Exception as e:
@@ -53,9 +59,13 @@ async def create_essay_prompt(
 
 
 @router.get("/essay-prompts/{essay_prompt_uuid}", response_model=EssayPromptRead)
-@cache(key_prefix="aes_essay_prompt", resource_id_name="essay_prompt_uuid", expiration=3600)
+@cache(key_prefix="aes_essay_prompt:{municipio_id}", resource_id_name="essay_prompt_uuid", expiration=3600)
 async def get_essay_prompt(
-    request: Request, essay_prompt_uuid: str, db: TenantSessionDep, aes_service: AesServiceDep
+    request: Request,
+    essay_prompt_uuid: str,
+    municipio_id: CurrentMunicipioIdDep,
+    db: TenantSessionDep,
+    aes_service: AesServiceDep,
 ) -> dict[str, Any]:
     try:
         return await aes_service.get_essay_prompt(essay_prompt_uuid, db)
