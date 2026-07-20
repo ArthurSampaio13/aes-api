@@ -46,7 +46,19 @@ class TestSettings:
         expected_url = "postgresql+asyncpg://prod_user:prod_pass@prod.example.com:5432/prod_db"
         assert settings.DATABASE_URL == expected_url
 
-    @patch.dict(os.environ, {}, clear=False)
+    # POSTGRES_* env vars pin these to their code defaults: Settings reads a project-root
+    # .env at import time, so a developer's local overrides would otherwise leak in here.
+    @patch.dict(
+        os.environ,
+        {
+            "POSTGRES_USER": "postgres",
+            "POSTGRES_PASSWORD": "postgres",
+            "POSTGRES_SERVER": "localhost",
+            "POSTGRES_PORT": "5432",
+            "POSTGRES_DB": "postgres",
+        },
+        clear=False,
+    )
     def test_database_url_fallback_to_constructed(self):
         """Test that DATABASE_URL falls back to constructed URL when env var not set."""
         # Remove DATABASE_URL if it exists
@@ -92,9 +104,27 @@ class TestSettings:
 class TestTaskiqSettings:
     """Test cases for Taskiq configuration settings."""
 
+    # TASKIQ_* env vars pin these to their code defaults, same reasoning as
+    # test_database_url_fallback_to_constructed above. get_settings() is cached, and its
+    # cached instance may already reflect the local .env, so build a fresh Settings() here
+    # instead. TASKIQ_REDIS_PASSWORD is str | None: an env var can't express None, so it's
+    # passed directly as a constructor kwarg (highest-priority source in pydantic-settings).
+    @patch.dict(
+        os.environ,
+        {
+            "TASKIQ_ENABLED": "true",
+            "TASKIQ_BROKER_TYPE": "redis",
+            "TASKIQ_REDIS_HOST": "localhost",
+            "TASKIQ_REDIS_PORT": "6379",
+            "TASKIQ_REDIS_DB": "3",
+            "TASKIQ_WORKER_CONCURRENCY": "2",
+            "TASKIQ_MAX_TASKS_PER_WORKER": "1000",
+        },
+        clear=False,
+    )
     def test_taskiq_settings_defaults(self):
         """Test Taskiq settings have correct defaults."""
-        settings = get_settings()
+        settings = Settings(TASKIQ_REDIS_PASSWORD=None)
 
         # Test default values
         assert settings.TASKIQ_ENABLED is True
