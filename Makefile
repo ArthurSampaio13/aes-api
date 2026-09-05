@@ -14,7 +14,7 @@ infra:
 	tofu -chdir=infra apply -auto-approve
 
 down:
-	-tofu -chdir=infra destroy -auto-approve
+	tofu -chdir=infra destroy -auto-approve
 	-kind delete cluster --name $(CLUSTER)
 	rm -rf infra/.state
 

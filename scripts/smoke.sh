@@ -11,7 +11,7 @@ SEED_LOG="$(kubectl -n "$NS" logs job/aes-api-seed 2>/dev/null || true)"
 API_KEY="${API_KEY:-$(printf '%s' "$SEED_LOG" | grep '^AES_BOOTSTRAP_API_KEY=' | cut -d= -f2-)}"
 RUBRIC_ID="$(printf '%s' "$SEED_LOG" | grep '^AES_RUBRIC_ID=' | cut -d= -f2-)"
 PROMPT_TEMPLATE_ID="$(printf '%s' "$SEED_LOG" | grep '^AES_PROMPT_TEMPLATE_ID=' | cut -d= -f2-)"
-[ -n "$API_KEY" ] || die "API key de bootstrap não encontrada; rode make up, ou passe API_KEY=... no ambiente"
+[ -n "$API_KEY" ] || die "API key de bootstrap não encontrada nos logs do seed (ele não reemite a chave); passe API_KEY=... no ambiente"
 [ -n "$RUBRIC_ID" ] || die "rubric id não encontrado nos logs do seed"
 [ -n "$PROMPT_TEMPLATE_ID" ] || die "prompt template id não encontrado nos logs do seed"
 AUTH=(-H "X-API-Key: $API_KEY" -H "Content-Type: application/json")
