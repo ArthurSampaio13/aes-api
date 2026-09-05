@@ -23,6 +23,7 @@ from .schemas import (
     APIKeyRead,
     APIKeyUpdate,
     APIKeyValidationResponse,
+    KeyPermissionCreate,
     KeyUsageCreate,
     KeyUsageRead,
 )
@@ -39,6 +40,28 @@ _SCRYPT_N = 2**14
 _SCRYPT_R = 8
 _SCRYPT_P = 1
 _SCRYPT_DKLEN = 32
+
+
+def _permission_pairs(permissions: dict[str, Any]) -> list[tuple[KeyPermissionResource, KeyPermissionAction]]:
+    """Parse a `{resource: [action, ...]}` permissions dict into valid (resource, action) enum pairs.
+
+    Unknown resources, non-list values, and unknown actions are skipped rather than raising, since
+    `permissions` is also used as free-form descriptive JSON by existing callers.
+    """
+    pairs = []
+    for resource, actions in permissions.items():
+        try:
+            resource_enum = KeyPermissionResource(resource)
+        except ValueError:
+            continue
+        if not isinstance(actions, list):
+            continue
+        for action in actions:
+            try:
+                pairs.append((resource_enum, KeyPermissionAction(action)))
+            except ValueError:
+                continue
+    return pairs
 
 
 class APIKeyService:
@@ -139,10 +162,19 @@ class APIKeyService:
         )
 
         key_internal = APIKeyCreateInternal(**key_dict)
-        created_key = await crud_api_keys.create(db=db, object=key_internal, schema_to_select=APIKeyRead)
+        created_key = await crud_api_keys.create(db=db, object=key_internal, commit=False, schema_to_select=APIKeyRead)
 
         if not created_key:
             raise ValueError("Failed to create API key")
+
+        for resource, action in _permission_pairs(key_data.permissions):
+            await crud_key_permissions.create(
+                db=db,
+                object=KeyPermissionCreate(api_key_id=created_key["id"], resource=resource, action=action, is_allowed=True),
+                commit=False,
+            )
+
+        await db.commit()
 
         logger.info(f"Created API key {created_key['id']} for user {user_id}")
 

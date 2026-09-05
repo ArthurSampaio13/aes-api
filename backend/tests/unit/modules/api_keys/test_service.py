@@ -54,6 +54,27 @@ async def test_create_api_key(api_key_service, db_session: AsyncSession, test_us
 
 
 @pytest.mark.asyncio
+async def test_create_api_key_persists_enforceable_permissions(api_key_service, db_session: AsyncSession, test_user: dict):
+    """A key created through the service (not just the seed script) gets rows _check_permission can read."""
+    key_data = APIKeyCreate(
+        name="Scoped Key",
+        permissions={KeyPermissionResource.RUBRICS.value: [KeyPermissionAction.READ.value]},
+    )
+
+    created = await api_key_service.create_api_key(user_id=test_user["id"], key_data=key_data, db=db_session)
+
+    validation = await api_key_service.validate_api_key(
+        api_key=created["api_key"], resource="rubrics", action="read", db=db_session
+    )
+    assert validation.is_valid is True
+
+    denied = await api_key_service.validate_api_key(
+        api_key=created["api_key"], resource="rubrics", action="create", db=db_session
+    )
+    assert denied.is_valid is False
+
+
+@pytest.mark.asyncio
 async def test_api_key_generation_unique(api_key_service):
     """Test that API key generation produces unique keys."""
     key1, prefix1, hash1 = api_key_service._generate_api_key()
