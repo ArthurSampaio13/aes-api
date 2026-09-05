@@ -11,6 +11,8 @@ thing end to end.
 - Docker
 - [`mise`](https://mise.jdx.dev/) — pins `opentofu`, `kind`, `kubectl`, `helm`
   and `k9s` to the versions this repo expects
+- `uv` and `pre-commit` on `PATH` — `mise.toml` does not pin either, so
+  `make setup` (`pre-commit install`) fails on a machine that lacks them
 - 8 GB of RAM free for the cluster (Postgres, LocalStack, the app, and
   kube-prometheus-stack all run as pods on your machine)
 - Ports `8000` and `3000` free on the host (API and Grafana)
@@ -91,8 +93,21 @@ make creds
 !!! note "The API key only prints once"
     The seed Job detects an existing bootstrap key on a repeat `make deploy`
     and does not reissue it — so `make creds` on a second run will not show a
-    key line. That's expected, not a failure. If you lost the key, `make down
-    && make up` gives you a fresh one.
+    key line. That's expected, not a failure. If you lost the key, read it
+    back from the seed Job's own logs:
+    `kubectl -n aes logs job/aes-api-seed`. Do not `make down && make up` to
+    "fix" this — that destroys the Postgres volume, every generated password,
+    and the Tofu state, just to recover a string.
+
+!!! warning "The bootstrap key bypasses tenant isolation"
+    The seeded API key belongs to the platform superuser, and
+    `aes/dependencies.py` sets the RLS session variable to
+    `is_superuser=true` for that user — so Row-Level Security is bypassed for
+    every request made with it, including this entire walkthrough and
+    `make smoke`. That's acceptable for a single-tenant local demo, but it
+    means none of this exercises the tenant-isolation guarantee. That
+    guarantee is covered by the automated RLS test suite instead, not by this
+    walkthrough.
 
 ## 5. End-to-end flow
 
@@ -229,8 +244,10 @@ uv run bp deploy generate local
 docker compose up --build
 ```
 
-This gets you the same app with hot-reload, backed by Postgres and Redis
-in containers — no `kind`, no Helm, no LocalStack.
+This gets you the same app with hot-reload, backed by Postgres, Redis and
+LocalStack in containers — no `kind`, no Helm. The LocalStack auth token is
+still required here: export `LOCALSTACK_AUTH_TOKEN` in your shell before
+`docker compose up`, the same token used for the `kind` path.
 
 ## 9. Tear down
 

@@ -64,10 +64,10 @@ Expected target shape:
 
 Planned public endpoints include:
 
-- `POST /api/v1/jobs`
-- `GET /api/v1/jobs/{job_id}`
-- `GET /api/v1/jobs/{job_id}/results`
-- `GET /api/v1/models`
+- `POST /api/v1/aes/jobs`
+- `GET /api/v1/aes/jobs/{job_id}`
+- `GET /api/v1/aes/jobs/{job_id}/results`
+- `GET /api/v1/aes/models`
 - `GET /health`
 
 ## Implementation Rules

@@ -47,7 +47,8 @@ Run it locally on `kind`, matching the production deployment target:
 
 ```bash
 make setup
-export TF_VAR_localstack_auth_token=<your-localstack-token>
+cp infra/terraform.tfvars.example infra/terraform.tfvars
+# edit infra/terraform.tfvars and set localstack_auth_token
 make up
 ```
 
