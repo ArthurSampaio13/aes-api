@@ -1,0 +1,56 @@
+{
+  "title": "AES — Correções",
+  "uid": "aes-correcoes",
+  "schemaVersion": 39,
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Jobs por status",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (status, provider, model) (rate(aes_correction_jobs_total[5m]))",
+          "legendFormat": "{{status}} · {{provider}}/{{model}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tentativas por outcome",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (outcome, provider) (rate(aes_correction_attempts_total[5m]))",
+          "legendFormat": "{{outcome}} · {{provider}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Latência do provedor (ms)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, provider, model) (rate(aes_correction_latency_ms_bucket[5m])))",
+          "legendFormat": "p50 · {{provider}}/{{model}}"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, provider, model) (rate(aes_correction_latency_ms_bucket[5m])))",
+          "legendFormat": "p95 · {{provider}}/{{model}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tokens acumulados por condição",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (provider, model, direction) (aes_correction_tokens_sum)",
+          "legendFormat": "{{direction}} · {{provider}}/{{model}}"
+        }
+      ]
+    }
+  ]
+}

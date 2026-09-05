@@ -1,0 +1,16 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "aes-api.name" . }}-worker
+  labels:
+    {{- include "aes-api.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "aes-api.name" . }}-worker
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s
+{{- end }}

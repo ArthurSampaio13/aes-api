@@ -1,0 +1,12 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aes-api.name" . }}-dashboard
+  labels:
+    {{- include "aes-api.labels" . | nindent 4 }}
+    {{ .Values.monitoring.dashboardLabel }}: "1"
+data:
+  aes-correcoes.json: |
+    {{- .Files.Get "dashboards/aes-correcoes.json" | nindent 4 }}
+{{- end }}

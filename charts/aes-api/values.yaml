@@ -27,3 +27,7 @@ worker:
       memory: 768Mi
 
 envSecretName: aes-api-env
+
+monitoring:
+  enabled: true
+  dashboardLabel: grafana_dashboard
