@@ -32,6 +32,8 @@ from src.interfaces.main import app
 from src.modules.tier.models import Tier
 from src.modules.user.models import User
 
+os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
+
 
 def _import_all_models(package_name: str) -> None:
     package = importlib.import_module(package_name)
