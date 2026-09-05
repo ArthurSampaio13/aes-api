@@ -31,3 +31,25 @@ creds:
 	@echo "Docs:  $$(tofu -chdir=infra output -raw api_url)/docs"
 	@kubectl -n aes logs job/aes-api-seed 2>/dev/null | grep -E '^AES_(BOOTSTRAP_API_KEY|RUBRIC_ID|PROMPT_TEMPLATE_ID)=' \
 		|| echo "credenciais indisponíveis: rode make deploy"
+
+TAG ?= dev
+IMAGE ?= aes-api
+CODE_VERSION ?= $(shell git rev-parse --short HEAD)
+
+.PHONY: up build kind-load deploy
+
+up: infra build kind-load deploy creds
+
+build:
+	docker build -t $(IMAGE):$(TAG) backend
+
+kind-load:
+	kind load docker-image $(IMAGE):$(TAG) --name $(CLUSTER)
+
+deploy:
+	helm upgrade --install aes-api charts/aes-api \
+		--namespace aes \
+		--set image.repository=$(IMAGE) \
+		--set image.tag=$(TAG) \
+		--set codeVersion=$(CODE_VERSION) \
+		--wait --timeout 10m
