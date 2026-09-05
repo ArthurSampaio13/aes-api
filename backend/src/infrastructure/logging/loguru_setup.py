@@ -62,17 +62,17 @@ def configure_logging() -> None:
         if settings.ENVIRONMENT == EnvironmentOption.DEVELOPMENT:
             if settings.LOG_CONSOLE_ENABLED:
                 level = "DEBUG" if settings.LOG_DEVELOPMENT_VERBOSE else settings.LOG_LEVEL
-                logger.add(sys.stdout, format=_DEV_FORMAT, level=level, colorize=True)
+                logger.add(sys.stdout, format=_DEV_FORMAT, level=level, colorize=True, diagnose=False)
         elif settings.ENVIRONMENT == EnvironmentOption.STAGING:
             if settings.LOG_CONSOLE_ENABLED:
-                logger.add(sys.stdout, format=_STRUCTURED_FORMAT, level=settings.LOG_LEVEL, colorize=False)
+                logger.add(sys.stdout, format=_STRUCTURED_FORMAT, level=settings.LOG_LEVEL, colorize=False, diagnose=False)
         elif settings.ENVIRONMENT == EnvironmentOption.PRODUCTION:
             if settings.LOG_CONSOLE_ENABLED:
                 level = "WARNING" if settings.LOG_PRODUCTION_OPTIMIZE else settings.LOG_LEVEL
-                logger.add(sys.stdout, serialize=True, level=level)
+                logger.add(sys.stdout, serialize=True, level=level, diagnose=False)
         else:
             if settings.LOG_CONSOLE_ENABLED:
-                logger.add(sys.stdout, format=_DEV_FORMAT, level=settings.LOG_LEVEL, colorize=True)
+                logger.add(sys.stdout, format=_DEV_FORMAT, level=settings.LOG_LEVEL, colorize=True, diagnose=False)
 
         if settings.LOG_FILE_ENABLED:
             Path(settings.LOG_FILE_PATH).parent.mkdir(parents=True, exist_ok=True)
@@ -85,6 +85,7 @@ def configure_logging() -> None:
                 rotation=settings.LOG_FILE_MAX_SIZE,
                 retention=settings.LOG_FILE_BACKUP_COUNT,
                 encoding="utf-8",
+                diagnose=False,
             )
 
         _configured = True
