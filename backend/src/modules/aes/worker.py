@@ -3,6 +3,7 @@
 import time
 from typing import Annotated
 
+from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from taskiq import TaskiqDepends
@@ -39,6 +40,17 @@ async def process_correction_job(
         return
     submission = (await db.execute(select(Submission).where(Submission.uuid == job.submission_id))).scalar_one()
 
+    job_logger = logger.bind(
+        job_id=str(job.uuid),
+        submission_id=str(submission.uuid),
+        municipio_id=municipio_id,
+        provider=job.provider,
+        model=job.model,
+        prompt_version=prompt_version,
+        rubric_version=rubric_version,
+    )
+    job_logger.info("correction job started")
+
     job.status = "processing"
     await db.commit()
     await set_tenant_context(db, municipio_id, is_superuser=False)
@@ -52,6 +64,7 @@ async def process_correction_job(
             submission.raw_text = essay_text
             await db.commit()
             await set_tenant_context(db, municipio_id, is_superuser=False)
+            job_logger.info("ocr transcription completed")
         assert essay_text is not None
 
         for attempt_number in range(1, job.max_attempts + 1):
@@ -92,6 +105,15 @@ async def process_correction_job(
             db.add(attempt)
             await db.flush()
 
+            job_logger.bind(
+                attempt_number=attempt_number,
+                outcome=outcome,
+                latency_ms=latency_ms,
+                tokens_in=response.tokens_in,
+                tokens_out=response.tokens_out,
+                validation_error=response.validation_error,
+            ).info("correction attempt finished")
+
             CORRECTION_TOKENS.labels(provider=job.provider, model=job.model, direction="in").observe(response.tokens_in)
             CORRECTION_TOKENS.labels(provider=job.provider, model=job.model, direction="out").observe(response.tokens_out)
             CORRECTION_LATENCY_MS.labels(provider=job.provider, model=job.model).observe(latency_ms)
@@ -109,17 +131,20 @@ async def process_correction_job(
                 job.status = "done"
                 CORRECTION_JOBS_TOTAL.labels(status=job.status, provider=job.provider, model=job.model).inc()
                 await db.commit()
+                job_logger.info("correction job done")
                 return
 
         job.status = "failed"
         CORRECTION_JOBS_TOTAL.labels(status=job.status, provider=job.provider, model=job.model).inc()
         await db.commit()
+        job_logger.warning("correction job failed after exhausting attempts")
     except Exception:
         await db.rollback()
         await set_tenant_context(db, municipio_id, is_superuser=False)
         job = (await db.execute(select(CorrectionJob).where(CorrectionJob.uuid == job_id))).scalar_one()
         job.status = "failed"
         await db.commit()
+        job_logger.exception("correction job failed with an unhandled error")
         raise
 
 

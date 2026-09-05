@@ -29,6 +29,17 @@ from src.infrastructure.config.settings import Settings, get_settings
 from src.infrastructure.database.session import Base, async_session
 from src.infrastructure.taskiq.brokers import default_broker
 from src.interfaces.main import app
+from src.modules.aes.models.correction import CorrectionJob
+from src.modules.aes.models.essay_prompt import EssayPrompt
+from src.modules.aes.models.rubric import PromptTemplate, Rubric
+from src.modules.aes.models.submission import Batch, Submission
+from src.modules.aes.providers.base import FIXED_CRITERIA, CorrectionProvider
+from src.modules.aes.providers.mock import MockProvider
+from src.modules.aes.providers.mock_ocr import MockOCRProvider
+from src.modules.aes.providers.ocr_base import OCRProvider
+from src.modules.aes.storage import ObjectStorage
+from src.modules.aes.worker import process_correction_job
+from src.modules.municipio.models import Municipio
 from src.modules.tier.models import Tier
 from src.modules.user.models import User
 
@@ -515,3 +526,111 @@ def noop_taskiq_broker(monkeypatch):
         return None
 
     monkeypatch.setattr(default_broker, "kick", noop_kick)
+
+
+class FakeS3Client:
+    def __init__(self):
+        self.put_calls: list[dict] = []
+
+    async def put_object(self, Bucket, Key, Body, ContentType):
+        self.put_calls.append({"Bucket": Bucket, "Key": Key, "Body": Body, "ContentType": ContentType})
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+class CorrectionJobFixture:
+    """Shared scenario builder for `process_correction_job` tests: a pending job backed by a real municipio,
+    rubric, prompt template, batch and submission, ready to run against `MockProvider`/`MockOCRProvider`/a fake
+    `ObjectStorage`."""
+
+    def __init__(self, db_session: AsyncSession, test_user: dict):
+        self.db_session = db_session
+        self.test_user = test_user
+        self.storage = ObjectStorage(bucket="test-bucket", client_factory=lambda: FakeS3Client())
+
+    async def build(
+        self,
+        nome: str | None = None,
+        input_type: str = "text",
+        raw_text: str | None = "Um texto de teste.",
+        original_ref: str = "",
+    ) -> tuple[Municipio, CorrectionJob]:
+        nome = nome or f"Fixture Municipio {secrets.token_hex(4)}"
+        municipio = Municipio(nome=nome)
+        self.db_session.add(municipio)
+        await self.db_session.commit()
+
+        rubric = Rubric(
+            version=1,
+            criteria={c: {"descricao": c, "peso": 0.2, "escala_max": 10} for c in FIXED_CRITERIA},
+            municipio_id=municipio.id,
+        )
+        template = PromptTemplate(version=1, template_text="Corrija: {essay_text}", municipio_id=municipio.id)
+        self.db_session.add_all([rubric, template])
+        await self.db_session.flush()
+        essay_prompt = EssayPrompt(
+            municipio_id=municipio.id,
+            titulo="Teste",
+            enunciado="Escreva sobre...",
+            ano_escolar="9",
+            genero_textual="dissertativo-argumentativo",
+            rubric_id=rubric.id,
+            prompt_template_id=template.id,
+        )
+        self.db_session.add(essay_prompt)
+        await self.db_session.flush()
+
+        batch = Batch(municipio_id=municipio.id, essay_prompt_id=essay_prompt.uuid, created_by_user_id=self.test_user["id"])
+        self.db_session.add(batch)
+        await self.db_session.flush()
+        submission = Submission(
+            municipio_id=municipio.id,
+            batch_id=batch.uuid,
+            input_type=input_type,
+            original_ref=original_ref,
+            raw_text=raw_text,
+        )
+        self.db_session.add(submission)
+        await self.db_session.flush()
+        job = CorrectionJob(
+            municipio_id=municipio.id, submission_id=submission.uuid, provider="mock", model="mock-v1", status="pending"
+        )
+        self.db_session.add(job)
+        await self.db_session.commit()
+        return municipio, job
+
+    async def process(
+        self,
+        municipio: Municipio,
+        job: CorrectionJob,
+        provider: CorrectionProvider | None = None,
+        ocr_provider: OCRProvider | None = None,
+        object_storage: ObjectStorage | None = None,
+        prompt_version: int = 1,
+        rubric_version: int = 1,
+    ) -> None:
+        await process_correction_job(
+            job_id=str(job.uuid),
+            municipio_id=municipio.id,
+            db=self.db_session,
+            provider=provider or MockProvider(),
+            ocr_provider=ocr_provider or MockOCRProvider(),
+            object_storage=object_storage or self.storage,
+            prompt_text="Corrija: {essay_text}",
+            prompt_version=prompt_version,
+            rubric_version=rubric_version,
+        )
+
+    async def run(self, essay_text: str = "Um texto de teste.", **kwargs) -> tuple[Municipio, CorrectionJob]:
+        municipio, job = await self.build(raw_text=essay_text)
+        await self.process(municipio, job, **kwargs)
+        return municipio, job
+
+
+@pytest_asyncio.fixture
+async def correction_job_fixture(db_session: AsyncSession, test_user: dict) -> CorrectionJobFixture:
+    return CorrectionJobFixture(db_session, test_user)
