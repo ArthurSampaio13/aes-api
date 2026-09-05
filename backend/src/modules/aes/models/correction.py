@@ -57,4 +57,5 @@ class CorrectionResult(Base, UUIDMixin, TimestampMixin):
     correction_attempt_id: Mapped[uuid_pkg.UUID] = mapped_column(UUID, ForeignKey("correction_attempts.uuid"), nullable=False)
     scores: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     feedback: Mapped[str] = mapped_column(Text, nullable=False)
+    sugestao_acionavel: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
     requires_teacher_review: Mapped[bool] = mapped_column(default=True, server_default="true")

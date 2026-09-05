@@ -34,5 +34,6 @@ def test_correction_result_requires_teacher_review_by_default():
         correction_attempt_id=uuid.uuid4(),
         scores={"adequacao_tema": {"nota": 4, "justificativa": "..."}},
         feedback="Bom desenvolvimento do tema.",
+        sugestao_acionavel="Revise a coesão entre parágrafos.",
     )
     assert result.requires_teacher_review is True

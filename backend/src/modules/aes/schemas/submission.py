@@ -28,4 +28,5 @@ class JobStatusRead(BaseModel):
 class JobResultRead(BaseModel):
     scores: dict
     feedback: str
+    sugestao_acionavel: str
     requires_teacher_review: bool

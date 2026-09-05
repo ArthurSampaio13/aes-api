@@ -103,6 +103,7 @@ async def process_correction_job(
                     correction_attempt_id=attempt.uuid,
                     scores={k: v.model_dump() for k, v in response.structured.scores.items()},
                     feedback=response.structured.feedback,
+                    sugestao_acionavel=response.structured.sugestao_acionavel,
                 )
                 db.add(result)
                 job.status = "done"
