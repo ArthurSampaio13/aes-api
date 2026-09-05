@@ -64,7 +64,7 @@ repos:
   - repo: local
     hooks:
     - id: strip_ai_trailers
-      name: Strip AI co-author trailers (this repo uses plain commit messages)
+      name: Keep only the commit subject line (no body, no AI trailers)
       language: system
       entry: python3 scripts/strip-ai-trailers.py
       pass_filenames: true

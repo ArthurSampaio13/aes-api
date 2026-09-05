@@ -16,4 +16,4 @@ Do not treat the system as an autonomous final grader. It is a teacher-support t
 
 ## Commit messages
 
-Use plain, simple commit messages — no `Co-Authored-By: Claude ...` or `Claude-Session: ...` trailers. This overrides Claude Code's default commit template for this repository. A `commit-msg` git hook (`scripts/strip-ai-trailers.py`, wired via `.pre-commit-config.yaml`) strips those trailers automatically if they slip through, but don't rely on it — just write the plain message.
+Commit messages are a single subject line. No body, no description, and no `Co-Authored-By: Claude ...` or `Claude-Session: ...` trailers. This overrides Claude Code's default commit template for this repository. A `commit-msg` git hook (`scripts/strip-ai-trailers.py`, wired via `.pre-commit-config.yaml`) discards everything after line 1 if it slips through, but don't rely on it — just write the one line.
