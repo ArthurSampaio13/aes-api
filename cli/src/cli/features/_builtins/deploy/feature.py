@@ -87,6 +87,13 @@ class DeployFeature(Feature):
         if mode == "nginx":
             nginx_target = Path(params.get("nginx_conf_target") or (project.repo_root / "nginx" / "default.conf"))
             files.append(FileOp(template="nginx/default.conf.j2", target=nginx_target))
+        if mode == "local":
+            files.append(
+                FileOp(
+                    template="local/localstack-ready.sh.j2",
+                    target=compose_target.parent / "localstack-init" / "01-provision.sh",
+                )
+            )
 
         return FeaturePlan(
             manifest=self.manifest(),
