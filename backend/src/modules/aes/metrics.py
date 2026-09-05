@@ -1,5 +1,8 @@
 """Prometheus metrics for correction jobs and LLM token usage — see spec section 4."""
 
+import errno
+
+from loguru import logger
 from prometheus_client import Counter, Histogram, start_http_server
 
 CORRECTION_JOBS_TOTAL = Counter("aes_correction_jobs_total", "Correction jobs by final status", ["status", "provider", "model"])
@@ -21,12 +24,15 @@ CORRECTION_ATTEMPTS_TOTAL = Counter(
 
 
 def start_metrics_server(port: int = 9464) -> None:
-    """Bind the metrics HTTP server, tolerating the port already being held.
+    """Bind the metrics HTTP server, tolerating a same-process re-bind of the same port.
 
-    Taskiq's process manager fires ``WORKER_STARTUP`` in every worker subprocess sharing this
-    pod's network namespace; only the first one to call this needs to actually bind the port.
+    A restart of this worker process can re-fire ``WORKER_STARTUP`` while the previous bind is
+    still being torn down. Any other bind failure (wrong permissions, unsupported address family,
+    a second worker subprocess still competing for the port) is a real misconfiguration and stays loud.
     """
     try:
         start_http_server(port)
-    except OSError:
-        pass
+    except OSError as e:
+        if e.errno != errno.EADDRINUSE:
+            raise
+        logger.warning(f"metrics port {port} already bound, skipping duplicate bind")

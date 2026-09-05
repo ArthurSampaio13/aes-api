@@ -19,6 +19,7 @@ api:
 worker:
   replicas: 1
   metricsPort: 9464
+  concurrency: 1
   resources:
     requests:
       cpu: 100m
