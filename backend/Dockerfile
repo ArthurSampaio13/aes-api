@@ -42,6 +42,13 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Copy source code
 COPY src ./src
 
+# Copy migration files
+COPY migrations ./migrations
+COPY alembic.ini .
+
+# Copy seed scripts
+COPY scripts ./scripts
+
 # Set Python path
 ENV PYTHONPATH=/app/src
 
@@ -75,10 +82,6 @@ FROM base AS migrate
 
 # Optional build arg for CI/CD pipelines
 ARG DATABASE_URL=""
-
-# Copy migration files
-COPY migrations ./migrations
-COPY alembic.ini .
 
 # Create non-root user for security
 RUN groupadd -r appuser && useradd -r -m -g appuser appuser

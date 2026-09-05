@@ -15,7 +15,7 @@ repos:
       - id: check-executables-have-shebangs
       - id: check-case-conflict
       - id: check-added-large-files
-        exclude: ^(.*\/dummy.*|.*\.json)$
+        exclude: ^(.*\/dummy.*|.*\.json|.*uv\.lock)$
         args: ["--maxkb=750", "--enforce-all"]
       - id: detect-private-key
       - id: check-merge-conflict
