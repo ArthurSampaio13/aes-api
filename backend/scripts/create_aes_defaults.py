@@ -10,6 +10,7 @@ from sqlalchemy import select  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
 from src.infrastructure.database.session import local_session  # noqa: E402
+from src.infrastructure.database.tenancy import set_tenant_context  # noqa: E402
 from src.modules.aes.models.rubric import PromptTemplate, Rubric  # noqa: E402
 from src.modules.municipio.models import Municipio  # noqa: E402
 
@@ -34,6 +35,7 @@ DEFAULT_PROMPT = (
 
 async def create_aes_defaults(db: AsyncSession) -> tuple[Municipio, Rubric, PromptTemplate]:
     """Create the demo tenant and the platform-default rubric and prompt template, once."""
+    await set_tenant_context(db, None, is_superuser=True)
     municipio = (await db.execute(select(Municipio).where(Municipio.nome == DEFAULT_MUNICIPIO))).scalar_one_or_none()
     if municipio is None:
         municipio = Municipio(nome=DEFAULT_MUNICIPIO)
@@ -53,6 +55,7 @@ async def create_aes_defaults(db: AsyncSession) -> tuple[Municipio, Rubric, Prom
         logger.info("created platform-default prompt template v1")
 
     await db.commit()
+    await set_tenant_context(db, None, is_superuser=True)
     await db.refresh(municipio)
     await db.refresh(rubric)
     await db.refresh(template)
