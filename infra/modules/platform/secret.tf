@@ -26,6 +26,8 @@ resource "kubernetes_secret" "app_env" {
     TASKIQ_SQS_ENDPOINT_URL = local.localstack_endpoint
     TASKIQ_SQS_QUEUE_URL    = local.sqs_queue_url
     TASKIQ_SQS_REGION       = "us-east-1"
+    TASKIQ_SQS_ACCESS_KEY   = "test"
+    TASKIQ_SQS_SECRET_KEY   = "test"
 
     CACHE_BACKEND        = "memory"
     SESSION_BACKEND      = "memory"

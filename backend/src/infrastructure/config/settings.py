@@ -347,6 +347,8 @@ class TaskiqSettings(BaseSettings):
     TASKIQ_SQS_ENDPOINT_URL: str | None = config("TASKIQ_SQS_ENDPOINT_URL", default=None)
     TASKIQ_SQS_QUEUE_URL: str = config("TASKIQ_SQS_QUEUE_URL", default="")
     TASKIQ_SQS_REGION: str = config("TASKIQ_SQS_REGION", default="us-east-1")
+    TASKIQ_SQS_ACCESS_KEY: str = config("TASKIQ_SQS_ACCESS_KEY", default="test")
+    TASKIQ_SQS_SECRET_KEY: str = config("TASKIQ_SQS_SECRET_KEY", default="test")
 
     TASKIQ_WORKER_CONCURRENCY: int = config("TASKIQ_WORKER_CONCURRENCY", default=2, cast=int)
     TASKIQ_MAX_TASKS_PER_WORKER: int = config("TASKIQ_MAX_TASKS_PER_WORKER", default=1000, cast=int)

@@ -62,6 +62,8 @@ def _create_sqs_broker() -> AsyncBroker:
         sqs_queue_name=_queue_name_from_url(settings.TASKIQ_SQS_QUEUE_URL),
         endpoint_url=settings.TASKIQ_SQS_ENDPOINT_URL or None,
         region_name=settings.TASKIQ_SQS_REGION,
+        aws_access_key_id=settings.TASKIQ_SQS_ACCESS_KEY,
+        aws_secret_access_key=settings.TASKIQ_SQS_SECRET_KEY,
     )
 
 

@@ -19,8 +19,8 @@ spec:
         - name: worker
           image: {{ include "aes-api.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["taskiq", "worker", "infrastructure.taskiq.worker:default_broker", "modules.aes.worker"]
-          workingDir: /app/src
+          command: ["taskiq", "worker", "src.infrastructure.taskiq.worker:default_broker", "src.modules.aes.worker"]
+          workingDir: /app
           ports:
             - name: metrics
               containerPort: {{ .Values.worker.metricsPort }}
