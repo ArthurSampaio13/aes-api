@@ -1,3 +1,14 @@
+resource "kubernetes_secret" "localstack" {
+  metadata {
+    name      = "localstack-credentials"
+    namespace = kubernetes_namespace.app.metadata[0].name
+  }
+
+  data = {
+    LOCALSTACK_AUTH_TOKEN = var.localstack_auth_token
+  }
+}
+
 resource "kubernetes_config_map" "localstack_init" {
   metadata {
     name      = "localstack-init"
@@ -43,8 +54,13 @@ resource "kubernetes_deployment" "localstack" {
           }
 
           env {
-            name  = "LOCALSTACK_AUTH_TOKEN"
-            value = var.localstack_auth_token
+            name = "LOCALSTACK_AUTH_TOKEN"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.localstack.metadata[0].name
+                key  = "LOCALSTACK_AUTH_TOKEN"
+              }
+            }
           }
 
           env {
