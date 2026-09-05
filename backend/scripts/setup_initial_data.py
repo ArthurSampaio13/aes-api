@@ -7,18 +7,15 @@ sys.path.append(str(backend_dir))
 
 from loguru import logger  # noqa: E402
 
+from scripts.create_aes_defaults import create_aes_defaults  # noqa: E402
+from scripts.create_bootstrap_api_key import ensure_bootstrap_api_key  # noqa: E402
 from scripts.create_first_superuser import create_first_superuser  # noqa: E402
 from scripts.create_first_tier import create_first_tier  # noqa: E402
-from src.infrastructure.database.session import create_tables  # noqa: E402
+from src.infrastructure.database.session import create_tables, local_session  # noqa: E402
 
 
 async def setup_initial_data() -> None:
-    """Setup initial data for the application, including:
-
-    - Create database tables
-    - Create default tier
-    - Create admin superuser
-    """
+    """Create tables, the default tier, the superuser, the demo tenant, and a bootstrap API key."""
     logger.info("Setting up initial data...")
 
     logger.info("Creating database tables...")
@@ -34,6 +31,16 @@ async def setup_initial_data() -> None:
 
     logger.info("Creating superuser...")
     await create_first_superuser()
+
+    logger.info("Creating AES defaults and bootstrap API key...")
+    async with local_session() as session:
+        municipio, rubric, template = await create_aes_defaults(session)
+        api_key = await ensure_bootstrap_api_key(session, municipio.id)
+
+    print(f"AES_RUBRIC_ID={rubric.id}")
+    print(f"AES_PROMPT_TEMPLATE_ID={template.id}")
+    if api_key:
+        print(f"AES_BOOTSTRAP_API_KEY={api_key}")
 
     logger.info("Initial data setup complete")
 

@@ -28,6 +28,9 @@ worker:
 
 envSecretName: aes-api-env
 
+seed:
+  enabled: true
+
 monitoring:
   enabled: true
   dashboardLabel: grafana_dashboard

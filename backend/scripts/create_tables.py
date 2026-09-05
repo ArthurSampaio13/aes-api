@@ -19,7 +19,7 @@ async def main() -> None:
         await create_tables()
         logger.info("✅ Database tables created successfully!")
     except Exception as e:
-        logger.error(f"❌ Error creating database tables: {str(e)}", exc_info=True)
+        logger.exception(f"❌ Error creating database tables: {str(e)}")
         sys.exit(1)
 
 
