@@ -11,5 +11,6 @@ module "kind_cluster" {
 module "platform" {
   source = "./modules/platform"
 
-  kubeconfig_path = module.kind_cluster.kubeconfig_path
+  kubeconfig_path       = module.kind_cluster.kubeconfig_path
+  localstack_auth_token = var.localstack_auth_token
 }

@@ -32,3 +32,21 @@ variable "postgres_storage" {
   type        = string
   default     = "2Gi"
 }
+
+variable "localstack_auth_token" {
+  description = "LocalStack auth token; required on every tier since the Community Edition was retired in March 2026"
+  type        = string
+  sensitive   = true
+}
+
+variable "storage_bucket" {
+  description = "S3 bucket holding submissions, OCR transcriptions and raw provider responses"
+  type        = string
+  default     = "aes-submissions"
+}
+
+variable "sqs_queue_name" {
+  description = "SQS queue backing the Taskiq broker"
+  type        = string
+  default     = "default"
+}

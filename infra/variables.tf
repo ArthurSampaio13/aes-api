@@ -26,3 +26,9 @@ variable "grafana_host_port" {
   type        = number
   default     = 3000
 }
+
+variable "localstack_auth_token" {
+  description = "LocalStack auth token, from TF_VAR_localstack_auth_token"
+  type        = string
+  sensitive   = true
+}
