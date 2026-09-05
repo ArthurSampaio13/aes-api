@@ -37,6 +37,7 @@ class ProviderResponse(BaseModel):
     tokens_out: int
     latency_ms: int
     validation_error: str | None = None
+    validation_error_type: str | None = None
 
 
 class CorrectionProvider(Protocol):

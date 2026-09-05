@@ -35,6 +35,7 @@ class BedrockProvider:
                 tokens_out=0,
                 latency_ms=int((time.monotonic() - started_at) * 1000),
                 validation_error=str(exc),
+                validation_error_type=type(exc).__name__,
             )
 
         usage = result.usage()

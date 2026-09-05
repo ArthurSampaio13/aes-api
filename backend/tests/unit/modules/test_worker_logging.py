@@ -1,9 +1,28 @@
+from typing import Any
+
 import pytest
 from loguru import logger
 
+from src.modules.aes.providers.base import ProviderResponse
 from tests.unit.modules.test_correction_worker import _RaisingProvider
 
 ESSAY_TEXT = "A minha cidade tem um rio muito bonito que precisa de cuidado."
+
+
+class _LeakyValidationErrorProvider:
+    async def correct(self, essay_text: str, prompt: str, params: dict[str, Any]) -> ProviderResponse:
+        try:
+            raise ValueError(f"model produced invalid output for essay: {essay_text}")
+        except Exception as exc:
+            return ProviderResponse(
+                raw_text="",
+                structured=None,
+                tokens_in=0,
+                tokens_out=0,
+                latency_ms=1,
+                validation_error=str(exc),
+                validation_error_type=type(exc).__name__,
+            )
 
 
 @pytest.fixture
@@ -54,4 +73,11 @@ async def test_worker_never_logs_student_text_on_unhandled_error(captured_logs, 
 
     levels = [entry["record"]["level"].name for entry in captured_logs]
     assert "ERROR" in levels
+    _assert_no_essay_leak(captured_logs)
+
+
+@pytest.mark.asyncio
+async def test_worker_never_logs_essay_text_embedded_in_provider_validation_error(captured_logs, correction_job_fixture):
+    await correction_job_fixture.run(essay_text=ESSAY_TEXT, provider=_LeakyValidationErrorProvider())
+
     _assert_no_essay_leak(captured_logs)

@@ -18,9 +18,11 @@ class MockProvider:
         try:
             structured = CorrectionCandidate.model_validate(candidate_dict)
             validation_error = None
+            validation_error_type = None
         except ValidationError as exc:
             structured = None
             validation_error = str(exc)
+            validation_error_type = type(exc).__name__
 
         return ProviderResponse(
             raw_text=str(candidate_dict),
@@ -29,4 +31,5 @@ class MockProvider:
             tokens_out=40,
             latency_ms=5,
             validation_error=validation_error,
+            validation_error_type=validation_error_type,
         )

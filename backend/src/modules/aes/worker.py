@@ -117,7 +117,7 @@ async def process_correction_job(
                 latency_ms=latency_ms,
                 tokens_in=response.tokens_in,
                 tokens_out=response.tokens_out,
-                validation_error=response.validation_error,
+                validation_error_type=response.validation_error_type,
             ).info("correction attempt finished")
 
             CORRECTION_TOKENS.labels(provider=job.provider, model=job.model, direction="in").observe(response.tokens_in)
