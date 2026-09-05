@@ -1,3 +1,5 @@
+import socket
+
 from prometheus_client import REGISTRY
 
 from src.modules.aes.metrics import (
@@ -5,6 +7,7 @@ from src.modules.aes.metrics import (
     CORRECTION_JOBS_TOTAL,
     CORRECTION_LATENCY_MS,
     CORRECTION_TOKENS,
+    start_metrics_server,
 )
 
 
@@ -52,3 +55,13 @@ def test_tokens_histogram_buckets_cover_realistic_observations():
         {"provider": "mock", "model": "mock-v1", "direction": "in", "le": "2500.0"},
     )
     assert finite_count is not None and finite_count >= 1.0
+
+
+def test_start_metrics_server_tolerates_port_already_bound():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(("", 0))
+    port = sock.getsockname()[1]
+    try:
+        start_metrics_server(port)
+    finally:
+        sock.close()

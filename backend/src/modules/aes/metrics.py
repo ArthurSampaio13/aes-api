@@ -21,4 +21,12 @@ CORRECTION_ATTEMPTS_TOTAL = Counter(
 
 
 def start_metrics_server(port: int = 9464) -> None:
-    start_http_server(port)
+    """Bind the metrics HTTP server, tolerating the port already being held.
+
+    Taskiq's process manager fires ``WORKER_STARTUP`` in every worker subprocess sharing this
+    pod's network namespace; only the first one to call this needs to actually bind the port.
+    """
+    try:
+        start_http_server(port)
+    except OSError:
+        pass
