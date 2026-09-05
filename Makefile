@@ -41,7 +41,7 @@ CODE_VERSION ?= $(shell git rev-parse --short HEAD)
 up: infra build kind-load deploy creds
 
 build:
-	docker build -t $(IMAGE):$(TAG) backend
+	docker build -f backend/Dockerfile -t $(IMAGE):$(TAG) .
 
 kind-load:
 	kind load docker-image $(IMAGE):$(TAG) --name $(CLUSTER)

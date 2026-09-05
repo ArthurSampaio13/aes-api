@@ -1,0 +1,12 @@
+.git
+.venv
+.claude
+.ruff_cache
+.superpowers
+superpowers
+docs
+infra
+charts
+deploy
+cli
+.github

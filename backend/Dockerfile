@@ -7,17 +7,18 @@ WORKDIR /tmp
 # Use official uv image with pinned version for reproducibility
 COPY --from=ghcr.io/astral-sh/uv:0.9.9 /uv /usr/local/bin/uv
 
-# Copy both pyproject.toml and uv.lock for deterministic export
+# Copy the workspace root lock and the backend member's pyproject.toml it resolves against
 COPY pyproject.toml uv.lock ./
+COPY backend/pyproject.toml backend/pyproject.toml
 
-# Export from lock file (not re-resolving dependencies!)
+# Export from the workspace lock file (not re-resolving dependencies!) for the backend member only
 # Filter out the local project line and keep only external dependencies
-RUN uv export --no-dev --no-editable -o /tmp/req-full.txt && \
-    grep -v "^\\.$" /tmp/req-full.txt > requirements-prod.txt
+RUN uv export --package fastapi-boilerplate --no-dev --no-editable -o /tmp/req-full.txt && \
+    grep -v "^\\./" /tmp/req-full.txt > requirements-prod.txt
 
-# Export dev requirements from lock file
-RUN uv export --no-editable -o /tmp/req-dev-full.txt && \
-    grep -v "^\\.$" /tmp/req-dev-full.txt > requirements-dev.txt
+# Export dev requirements from the workspace lock file
+RUN uv export --package fastapi-boilerplate --no-editable -o /tmp/req-dev-full.txt && \
+    grep -v "^\\./" /tmp/req-dev-full.txt > requirements-dev.txt
 
 # ===================== Production Base Stage =====================
 FROM python:3.11-slim AS base
@@ -40,14 +41,14 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     rm requirements-prod.txt
 
 # Copy source code
-COPY src ./src
+COPY backend/src ./src
 
 # Copy migration files
-COPY migrations ./migrations
-COPY alembic.ini .
+COPY backend/migrations ./migrations
+COPY backend/alembic.ini .
 
 # Copy seed scripts
-COPY scripts ./scripts
+COPY backend/scripts ./scripts
 
 # Set Python path
 ENV PYTHONPATH=/app/src
@@ -64,7 +65,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     rm requirements-dev.txt
 
 # Copy test files for development
-COPY tests ./tests
+COPY backend/tests ./tests
 
 # Create non-root user for security (same as production)
 RUN groupadd -r appuser && useradd -r -m -g appuser appuser
