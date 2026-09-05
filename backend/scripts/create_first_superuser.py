@@ -5,22 +5,19 @@ from pathlib import Path
 backend_dir = Path(__file__).parent.parent
 sys.path.append(str(backend_dir))
 
+from loguru import logger  # noqa: E402
 from sqlalchemy import update  # noqa: E402
 
 from src.infrastructure.config.settings import settings  # noqa: E402
 from src.infrastructure.database.session import local_session  # noqa: E402
-from src.infrastructure.logging import get_logger  # noqa: E402
 from src.modules.common.exceptions import UserNotFoundError  # noqa: E402
 from src.modules.user.models import User  # noqa: E402
 from src.modules.user.schemas import UserCreate  # noqa: E402
 from src.modules.user.service import UserService  # noqa: E402
 
-logger = get_logger()
-
 
 async def create_first_superuser() -> None:
-    """
-    Create the first superuser in the database if it doesn't exist.
+    """Create the first superuser in the database if it doesn't exist.
 
     This script uses environment variables for configuration:
     - ADMIN_NAME: The admin's full name

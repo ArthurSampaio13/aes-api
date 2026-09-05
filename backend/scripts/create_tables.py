@@ -6,10 +6,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.infrastructure.database.session import create_tables  # noqa: E402
-from src.infrastructure.logging import get_logger  # noqa: E402
+from loguru import logger  # noqa: E402
 
-logger = get_logger()
+from src.infrastructure.database.session import create_tables  # noqa: E402
 
 
 async def main() -> None:

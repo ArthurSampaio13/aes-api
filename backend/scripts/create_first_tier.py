@@ -6,19 +6,16 @@ from pathlib import Path
 backend_dir = Path(__file__).parent.parent
 sys.path.append(str(backend_dir))
 
+from loguru import logger  # noqa: E402
 from sqlalchemy import select  # noqa: E402
 
 from src.infrastructure.config.settings import settings  # noqa: E402
 from src.infrastructure.database.session import local_session  # noqa: E402
-from src.infrastructure.logging import get_logger  # noqa: E402
 from src.modules.tier.models import Tier  # noqa: E402
-
-logger = get_logger()
 
 
 async def create_first_tier() -> None:
-    """
-    Create the first tier in the database if it doesn't exist.
+    """Create the first tier in the database if it doesn't exist.
 
     This script uses environment variables for configuration:
     - DEFAULT_TIER_NAME: The name of the default tier (defaults to "free")
