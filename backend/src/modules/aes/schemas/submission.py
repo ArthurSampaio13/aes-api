@@ -30,3 +30,9 @@ class JobResultRead(BaseModel):
     feedback: str
     sugestao_acionavel: str
     requires_teacher_review: bool
+
+
+class ModelInfo(BaseModel):
+    provider: str
+    model: str
+    available: bool

@@ -7,12 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...infrastructure.auth.api_key_dependencies import get_current_principal
 from ...infrastructure.auth.http_exceptions import HTTPException
 from ...infrastructure.cache import cache
+from ...infrastructure.config.settings import get_settings
 from ...modules.api_keys.enums import KeyPermissionAction, KeyPermissionResource
 from ..common.utils.error_handler import handle_exception
 from .dependencies import AesServiceDep, get_aes_tenant_session
+from .providers.registry import PROVIDER_FACTORIES
 from .schemas.essay_prompt import EssayPromptCreate, EssayPromptRead
 from .schemas.rubric import RubricCreate, RubricRead
-from .schemas.submission import BatchSubmitRequest, BatchSubmitResponse, JobResultRead, JobStatusRead
+from .schemas.submission import BatchSubmitRequest, BatchSubmitResponse, JobResultRead, JobStatusRead, ModelInfo
 from .storage import ObjectStorage, get_object_storage
 
 router = APIRouter(tags=["AES"])
@@ -74,6 +76,19 @@ async def get_rubric(
         if http_exception:
             raise http_exception
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
+
+@router.get("/models", response_model=list[ModelInfo])
+async def list_models(
+    current_user: Annotated[dict[str, Any], Depends(_rubric_read)],
+) -> list[dict[str, Any]]:
+    settings = get_settings()
+    configured = {
+        "mock": ("mock", True),
+        "openrouter": (settings.OPENROUTER_MODEL, bool(settings.OPENROUTER_API_KEY)),
+        "bedrock": (settings.BEDROCK_MODEL_ID, True),
+    }
+    return [{"provider": name, "model": configured[name][0], "available": configured[name][1]} for name in PROVIDER_FACTORIES]
 
 
 @router.post("/essay-prompts", status_code=201, response_model=EssayPromptRead)
