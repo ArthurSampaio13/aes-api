@@ -7,3 +7,9 @@ module "kind_cluster" {
   api_host_port     = var.api_host_port
   grafana_host_port = var.grafana_host_port
 }
+
+module "platform" {
+  source = "./modules/platform"
+
+  kubeconfig_path = module.kind_cluster.kubeconfig_path
+}
