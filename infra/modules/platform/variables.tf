@@ -50,3 +50,9 @@ variable "sqs_queue_name" {
   type        = string
   default     = "default"
 }
+
+variable "kube_prometheus_stack_version" {
+  description = "Pinned kube-prometheus-stack chart version"
+  type        = string
+  default     = "88.6.1"
+}

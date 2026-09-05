@@ -1,0 +1,42 @@
+resource "random_password" "app_secret_key" {
+  length  = 48
+  special = false
+}
+
+resource "kubernetes_secret" "app_env" {
+  metadata {
+    name      = "aes-api-env"
+    namespace = kubernetes_namespace.app.metadata[0].name
+  }
+
+  data = {
+    POSTGRES_SERVER   = kubernetes_service.postgres.metadata[0].name
+    POSTGRES_PORT     = "5432"
+    POSTGRES_DB       = var.postgres_db
+    POSTGRES_USER     = var.postgres_app_user
+    POSTGRES_PASSWORD = random_password.postgres_app.result
+
+    AES_STORAGE_ENDPOINT_URL = local.localstack_endpoint
+    AES_STORAGE_BUCKET       = var.storage_bucket
+    AES_STORAGE_ACCESS_KEY   = "test"
+    AES_STORAGE_SECRET_KEY   = "test"
+    AWS_DEFAULT_REGION       = "us-east-1"
+
+    TASKIQ_BROKER_TYPE      = "sqs"
+    TASKIQ_SQS_ENDPOINT_URL = local.localstack_endpoint
+    TASKIQ_SQS_QUEUE_URL    = local.sqs_queue_url
+    TASKIQ_SQS_REGION       = "us-east-1"
+
+    CACHE_BACKEND        = "memory"
+    SESSION_BACKEND      = "memory"
+    RATE_LIMITER_ENABLED = "false"
+    AES_OCR_PROVIDER     = "mock"
+
+    SESSION_SECURE_COOKIES                 = "false"
+    PRODUCTION_SECURITY_VALIDATION_ENABLED = "false"
+
+    SECRET_KEY = random_password.app_secret_key.result
+  }
+
+  depends_on = [kubernetes_stateful_set.postgres, kubernetes_deployment.localstack]
+}
