@@ -8,9 +8,10 @@ from loguru import logger  # noqa: E402
 from sqlalchemy import select, update  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
+from src.modules.api_keys.crud import crud_key_permissions  # noqa: E402
 from src.modules.api_keys.enums import KeyPermissionAction, KeyPermissionResource  # noqa: E402
 from src.modules.api_keys.models import APIKey  # noqa: E402
-from src.modules.api_keys.schemas import APIKeyCreate  # noqa: E402
+from src.modules.api_keys.schemas import APIKeyCreate, KeyPermissionCreate  # noqa: E402
 from src.modules.api_keys.service import APIKeyService  # noqa: E402
 from src.modules.user.models import User  # noqa: E402
 
@@ -50,5 +51,19 @@ async def ensure_bootstrap_api_key(db: AsyncSession, municipio_id: int) -> str |
         key_data=APIKeyCreate(name=BOOTSTRAP_KEY_NAME, permissions=BOOTSTRAP_PERMISSIONS),
         db=db,
     )
+
+    for resource, actions in BOOTSTRAP_PERMISSIONS.items():
+        for action in actions:
+            await crud_key_permissions.create(
+                db=db,
+                object=KeyPermissionCreate(
+                    api_key_id=created["id"],
+                    resource=KeyPermissionResource(resource),
+                    action=KeyPermissionAction(action),
+                    is_allowed=True,
+                ),
+            )
+    await db.commit()
+
     logger.info("issued bootstrap API key")
     return str(created["api_key"])

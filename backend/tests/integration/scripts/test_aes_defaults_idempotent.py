@@ -2,9 +2,9 @@ import pytest
 from sqlalchemy import func, select
 
 from scripts.create_aes_defaults import create_aes_defaults
-from scripts.create_bootstrap_api_key import BOOTSTRAP_KEY_NAME, ensure_bootstrap_api_key
+from scripts.create_bootstrap_api_key import BOOTSTRAP_KEY_NAME, BOOTSTRAP_PERMISSIONS, ensure_bootstrap_api_key
 from src.modules.aes.models.rubric import PromptTemplate, Rubric
-from src.modules.api_keys.models import APIKey
+from src.modules.api_keys.models import APIKey, KeyPermission
 from src.modules.municipio.models import Municipio
 from src.modules.user.models import User
 
@@ -55,6 +55,14 @@ async def test_bootstrap_api_key_is_issued_once(test_db, test_superuser):
         )
     ).scalar_one()
     assert count == 1
+
+    api_key = (
+        await test_db.execute(select(APIKey).where(APIKey.user_id == test_superuser["id"], APIKey.name == BOOTSTRAP_KEY_NAME))
+    ).scalar_one()
+    granted = (await test_db.execute(select(KeyPermission).where(KeyPermission.api_key_id == api_key.id))).scalars().all()
+    granted_pairs = {(p.resource.value, p.action.value) for p in granted}
+    expected_pairs = {(resource, action) for resource, actions in BOOTSTRAP_PERMISSIONS.items() for action in actions}
+    assert granted_pairs == expected_pairs
 
 
 @pytest.mark.integration
