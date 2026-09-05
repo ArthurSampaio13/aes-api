@@ -28,6 +28,7 @@ from .database.session import create_tables
 from .middleware import ClientCacheMiddleware, SecurityHeadersMiddleware
 from .rate_limit.initialize import close_rate_limiter, initialize_rate_limiter
 from .rate_limit.middleware import RateLimiterMiddleware
+from .taskiq.brokers import default_broker
 
 
 async def set_threadpool_tokens(number_of_tokens: int = 100) -> None:
@@ -59,11 +60,15 @@ def lifespan_factory(
             if isinstance(settings, RateLimiterSettings) and settings.RATE_LIMITER_ENABLED:
                 await initialize_rate_limiter()
 
+            await default_broker.startup()
+
             initialization_complete.set()
 
             yield
 
         finally:
+            await default_broker.shutdown()
+
             if isinstance(settings, CacheSettings) and settings.CACHE_ENABLED:
                 await close_cache()
 
