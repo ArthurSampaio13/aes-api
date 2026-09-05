@@ -146,3 +146,9 @@ src/.env
 # Don't ignore files inside of script folder:
 !scripts/*
 
+infra/.state/
+infra/.terraform/
+infra/terraform.tfvars
+*.tfstate
+*.tfstate.backup
+infra/*-config
