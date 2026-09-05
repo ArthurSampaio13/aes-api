@@ -11,6 +11,7 @@ from ....infrastructure.auth.http_exceptions import (
 )
 from ....infrastructure.database.session import async_session
 from ....modules.user.crud import crud_users
+from ...config.enums import SessionBackend
 from ...config.settings import get_settings
 from ...rate_limit.provider import get_rate_limiter_backend
 from ..utils import verify_password
@@ -29,15 +30,27 @@ def get_session_manager() -> SessionManager:
     if _session_manager is not None:
         return _session_manager
 
+    storage_kwargs: dict[str, Any] = {
+        "prefix": "session:",
+        "expiration": settings.SESSION_TIMEOUT_MINUTES * 60,
+    }
+    if settings.SESSION_BACKEND == SessionBackend.REDIS.value:
+        storage_kwargs |= {
+            "host": settings.CACHE_REDIS_HOST,
+            "port": settings.CACHE_REDIS_PORT,
+            "db": settings.CACHE_REDIS_DB,
+            "password": settings.CACHE_REDIS_PASSWORD,
+        }
+    elif settings.SESSION_BACKEND == SessionBackend.MEMCACHED.value:
+        storage_kwargs |= {
+            "host": settings.CACHE_MEMCACHED_HOST,
+            "port": settings.CACHE_MEMCACHED_PORT,
+        }
+
     storage: AbstractSessionStorage[SessionData] = get_session_storage(
         backend=settings.SESSION_BACKEND,
         model_type=SessionData,
-        prefix="session:",
-        expiration=settings.SESSION_TIMEOUT_MINUTES * 60,
-        host=settings.CACHE_REDIS_HOST,
-        port=settings.CACHE_REDIS_PORT,
-        db=settings.CACHE_REDIS_DB,
-        password=settings.CACHE_REDIS_PASSWORD,
+        **storage_kwargs,
     )
 
     rate_limiter = None
