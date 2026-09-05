@@ -10,3 +10,6 @@ charts
 deploy
 cli
 .github
+.env
+*.env
+backend/.env

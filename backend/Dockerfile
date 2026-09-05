@@ -81,16 +81,10 @@ CMD ["fastapi", "dev", "interfaces/main.py", "--host", "0.0.0.0", "--port", "800
 # ===================== Migration Stage =====================
 FROM base AS migrate
 
-# Optional build arg for CI/CD pipelines
-ARG DATABASE_URL=""
-
 # Create non-root user for security
 RUN groupadd -r appuser && useradd -r -m -g appuser appuser
 RUN chown -R appuser:appuser /app
 USER appuser
-
-# Set build-time DATABASE_URL as environment variable if provided
-ENV DATABASE_URL=${DATABASE_URL}
 
 # Default command runs migrations
 CMD ["alembic", "upgrade", "head"]
