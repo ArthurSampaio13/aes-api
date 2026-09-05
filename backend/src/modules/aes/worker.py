@@ -6,13 +6,19 @@ from typing import Annotated
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from taskiq import TaskiqDepends
+from taskiq import TaskiqDepends, TaskiqEvents, TaskiqState
 
 from ...infrastructure.config.settings import get_settings
 from ...infrastructure.database.tenancy import set_tenant_context
 from ...infrastructure.taskiq.brokers import default_broker
 from ...infrastructure.taskiq.deps import get_db_session
-from .metrics import CORRECTION_JOBS_TOTAL, CORRECTION_LATENCY_MS, CORRECTION_TOKENS
+from .metrics import (
+    CORRECTION_ATTEMPTS_TOTAL,
+    CORRECTION_JOBS_TOTAL,
+    CORRECTION_LATENCY_MS,
+    CORRECTION_TOKENS,
+    start_metrics_server,
+)
 from .models.correction import CorrectionAttempt, CorrectionJob, CorrectionResult
 from .models.submission import Submission
 from .providers.base import CorrectionProvider
@@ -117,6 +123,7 @@ async def process_correction_job(
             CORRECTION_TOKENS.labels(provider=job.provider, model=job.model, direction="in").observe(response.tokens_in)
             CORRECTION_TOKENS.labels(provider=job.provider, model=job.model, direction="out").observe(response.tokens_out)
             CORRECTION_LATENCY_MS.labels(provider=job.provider, model=job.model).observe(latency_ms)
+            CORRECTION_ATTEMPTS_TOTAL.labels(provider=job.provider, model=job.model, outcome=outcome).inc()
 
             if response.structured is not None:
                 result = CorrectionResult(
@@ -169,3 +176,8 @@ async def run_correction_job(
         prompt_version=prompt_version,
         rubric_version=rubric_version,
     )
+
+
+@default_broker.on_event(TaskiqEvents.WORKER_STARTUP)
+async def _serve_worker_metrics(_: TaskiqState) -> None:
+    start_metrics_server(get_settings().WORKER_METRICS_PORT)

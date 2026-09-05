@@ -1,6 +1,6 @@
 """Prometheus metrics for correction jobs and LLM token usage — see spec section 4."""
 
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Histogram, start_http_server
 
 CORRECTION_JOBS_TOTAL = Counter("aes_correction_jobs_total", "Correction jobs by final status", ["status", "provider", "model"])
 CORRECTION_TOKENS = Histogram(
@@ -9,3 +9,10 @@ CORRECTION_TOKENS = Histogram(
 CORRECTION_LATENCY_MS = Histogram(
     "aes_correction_latency_ms", "LLM call latency in milliseconds, by provider/model", ["provider", "model"]
 )
+CORRECTION_ATTEMPTS_TOTAL = Counter(
+    "aes_correction_attempts_total", "Correction attempts by outcome", ["provider", "model", "outcome"]
+)
+
+
+def start_metrics_server(port: int = 9464) -> None:
+    start_http_server(port)

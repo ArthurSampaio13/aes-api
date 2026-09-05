@@ -379,6 +379,7 @@ class AESSettings(BaseSettings):
     BEDROCK_MODEL_ID: str = config("BEDROCK_MODEL_ID", default="anthropic.claude-3-haiku-20240307-v1:0")
     CODE_VERSION: str | None = config("CODE_VERSION", default=None)
     AES_OCR_PROVIDER: str = config("AES_OCR_PROVIDER", default="mock")
+    WORKER_METRICS_PORT: int = config("WORKER_METRICS_PORT", default=9464, cast=int)
 
 
 class Settings(
