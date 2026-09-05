@@ -161,7 +161,7 @@ curl http://localhost:8000/api/v1/users/me -b cookies.txt
 ## Alternative Setup Methods
 
 - **[Manual Installation](installation.md)** - Step-by-step setup details
-- **[Local Kubernetes Development](k8s-local.md)** - Run the full stack on `kind`, matching the production deployment target
+- **[Running AES](running-aes.md)** - Run the full AES stack on `kind` with OpenTofu, Helm, LocalStack and Grafana
 
 ## Need Help?
 

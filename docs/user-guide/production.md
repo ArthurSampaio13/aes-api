@@ -10,7 +10,7 @@ When `ENVIRONMENT=production`, `infrastructure/security/production_validator.py`
 
 The app **will not start** if any of these is true:
 
-- **`SECRET_KEY` is insecure.** Default placeholder, < 32 chars, contains an obvious string ("password", "secret", "test", "dev", "default", etc.), or has a predictable pattern (repetition, all-same-char).
+- **`SECRET_KEY` is insecure.** Default placeholder, \< 32 chars, contains an obvious string ("password", "secret", "test", "dev", "default", etc.), or has a predictable pattern (repetition, all-same-char).
 - **`POSTGRES_PASSWORD=postgres`** (the well-known default). Attackers try this first.
 - **`POSTGRES_PASSWORD` is empty.** Database is unprotected.
 
@@ -125,13 +125,13 @@ Never reuse the dev key. Never commit prod keys. Pull from a secrets manager (AW
 
 The boilerplate ships a multi-stage `backend/Dockerfile`:
 
-| Stage              | Purpose                                          |
-|--------------------|--------------------------------------------------|
-| `requirements-stage` | Exports pinned requirements from `uv.lock`     |
-| `base`             | Production base — copies source, installs deps  |
-| `dev`              | Adds dev deps, mounts tests, runs `fastapi dev` |
-| `migrate`          | Runs `alembic upgrade head` and exits           |
-| `prod`             | Runs `fastapi run` with configurable workers   |
+| Stage                | Purpose                                         |
+| -------------------- | ----------------------------------------------- |
+| `requirements-stage` | Exports pinned requirements from `uv.lock`      |
+| `base`               | Production base — copies source, installs deps  |
+| `dev`                | Adds dev deps, mounts tests, runs `fastapi dev` |
+| `migrate`            | Runs `alembic upgrade head` and exits           |
+| `prod`               | Runs `fastapi run` with configurable workers    |
 
 To build the production image:
 
@@ -209,8 +209,8 @@ CONFIRM_PRODUCTION_MIGRATION=yes alembic upgrade head
 This is intentional: `alembic upgrade head` should not be a routine boot-time command. Run migrations as a deliberate step in your deployment pipeline:
 
 1. Build the new image
-2. Build & run the `migrate` image with `CONFIRM_PRODUCTION_MIGRATION=yes`
-3. **Then** roll out the API container
+1. Build & run the `migrate` image with `CONFIRM_PRODUCTION_MIGRATION=yes`
+1. **Then** roll out the API container
 
 If your pipeline runs migrations after rollout, you can briefly serve a new code version against an old schema. Don't do that.
 
@@ -254,13 +254,13 @@ For OpenTelemetry / APM integration, hook into the FastAPI app at startup — th
 
 ## Health and Readiness
 
-The boilerplate ships a `GET /api/v1/health` endpoint. Use it as your liveness probe:
+The boilerplate ships a `GET /health` endpoint. Use it as your liveness probe:
 
 ```yaml
 # Kubernetes / Docker probe
 livenessProbe:
   httpGet:
-    path: /api/v1/health
+    path: /health
     port: 8000
   initialDelaySeconds: 10
   periodSeconds: 10
@@ -348,13 +348,13 @@ The worker process isn't running, isn't pointed at the same Redis, or hasn't imp
 
 ## Key Files
 
-| Component                         | Location                                                          |
-|-----------------------------------|-------------------------------------------------------------------|
-| Production validator              | `backend/src/infrastructure/security/production_validator.py`     |
-| Migration validator               | `backend/migrations/env.py:validate_production_migration`         |
-| Multi-stage Dockerfile            | `backend/Dockerfile`                                              |
-| Settings                          | `backend/src/infrastructure/config/settings.py`                   |
-| App factory / lifespan            | `backend/src/infrastructure/app_factory.py`                       |
+| Component              | Location                                                      |
+| ---------------------- | ------------------------------------------------------------- |
+| Production validator   | `backend/src/infrastructure/security/production_validator.py` |
+| Migration validator    | `backend/migrations/env.py:validate_production_migration`     |
+| Multi-stage Dockerfile | `backend/Dockerfile`                                          |
+| Settings               | `backend/src/infrastructure/config/settings.py`               |
+| App factory / lifespan | `backend/src/infrastructure/app_factory.py`                   |
 
 ## Next Steps
 

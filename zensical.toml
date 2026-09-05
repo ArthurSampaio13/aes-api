@@ -81,6 +81,7 @@ name = "FastAPI on PyPI"
     { "Installation" = "getting-started/installation.md" },
     { "Configuration" = "getting-started/configuration.md" },
     { "First Run" = "getting-started/first-run.md" },
+    { "Running AES" = "getting-started/running-aes.md" },
 ]
 
 [[project.nav]]

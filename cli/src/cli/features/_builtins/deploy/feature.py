@@ -1,16 +1,14 @@
-"""The deploy feature — generate Dockerfile-friendly compose files, or a Helm chart.
+"""The deploy feature — generate Dockerfile-friendly compose files.
 
-Four modes are supported:
+Three modes are supported:
 
 - ``local``: hot-reload dev stack (mounts source, exposes port 8000)
 - ``prod``: production stack with multiple workers, ports exposed directly
 - ``nginx``: ``prod`` plus an nginx reverse proxy on port 80
-- ``k8s``: a Helm chart (API/worker Deployments, Postgres/LocalStack as chart
-  dependencies) for local ``kind`` clusters or real Kubernetes
 
-The compose modes target the existing multi-stage ``backend/Dockerfile`` —
-no per-mode Dockerfile is generated. ``k8s`` mode generates a Helm chart
-instead of a compose file.
+All modes target the existing multi-stage ``backend/Dockerfile`` — no
+per-mode Dockerfile is generated. Kubernetes deployment goes through the
+in-tree Helm chart at ``charts/aes-api`` instead of this feature.
 """
 
 from __future__ import annotations
@@ -21,7 +19,7 @@ from typing import Any
 from ....lib.project import ProjectContext
 from ...base import Feature, FeatureManifest, FeaturePlan, FileOp
 
-SUPPORTED_MODES: tuple[str, ...] = ("local", "prod", "nginx", "k8s")
+SUPPORTED_MODES: tuple[str, ...] = ("local", "prod", "nginx")
 
 _TEMPLATES_ROOT = Path(__file__).parent / "templates"
 
@@ -31,7 +29,7 @@ class DeployFeature(Feature):
         return FeatureManifest(
             name="deploy",
             version="1.0",
-            summary="Generate a docker-compose.yml (local/prod/nginx) or a Helm chart (k8s).",
+            summary="Generate a docker-compose.yml (local/prod/nginx).",
         )
 
     def plan(self, params: dict[str, Any], project: ProjectContext) -> FeaturePlan:
@@ -59,26 +57,6 @@ class DeployFeature(Feature):
             "backend_context": backend_context,
             "env_file": env_file,
         }
-
-        if mode == "k8s":
-            chart_dir = Path(params.get("chart_dir") or (project.repo_root / "deploy" / "helm" / project_name))
-            chart_files: list[FileOp] = [
-                FileOp(template="k8s/Chart.yaml.j2", target=chart_dir / "Chart.yaml"),
-                FileOp(template="k8s/values.yaml.j2", target=chart_dir / "values.yaml"),
-                FileOp(template="k8s/templates/deployment-api.yaml.j2", target=chart_dir / "templates" / "deployment-api.yaml"),
-                FileOp(
-                    template="k8s/templates/deployment-worker.yaml.j2",
-                    target=chart_dir / "templates" / "deployment-worker.yaml",
-                ),
-                FileOp(template="k8s/templates/service-api.yaml.j2", target=chart_dir / "templates" / "service-api.yaml"),
-                FileOp(template="k8s/templates/job-migrate.yaml.j2", target=chart_dir / "templates" / "job-migrate.yaml"),
-            ]
-            return FeaturePlan(
-                manifest=self.manifest(),
-                templates_root=_TEMPLATES_ROOT,
-                template_context=context,
-                files=tuple(chart_files),
-            )
 
         compose_target = Path(params.get("compose_target") or (project.repo_root / "docker-compose.yml"))
         files: list[FileOp] = [

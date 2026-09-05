@@ -103,28 +103,30 @@ backend/src/modules/widgets/
 The full pattern (with concrete code) is in [Database → Models](database/models.md) and [API → Endpoints](api/endpoints.md). The short version:
 
 1. **Write the model** in `models.py`. Inherit from `Base`, use mixins (`TimestampMixin`, `SoftDeleteMixin`, `UUIDMixin`) where they apply.
-2. **Write the schemas** in `schemas.py`. Standard set: `WidgetBase`, `WidgetCreate`, `WidgetRead`, `WidgetUpdate`, plus `WidgetSelect` for FastCRUD's `schema_to_select`.
-3. **Wire FastCRUD** in `crud.py`:
+1. **Write the schemas** in `schemas.py`. Standard set: `WidgetBase`, `WidgetCreate`, `WidgetRead`, `WidgetUpdate`, plus `WidgetSelect` for FastCRUD's `schema_to_select`.
+1. **Wire FastCRUD** in `crud.py`:
    ```python
    from fastcrud import FastCRUD
    from .models import Widget
+
    crud_widgets = FastCRUD(Widget)
    ```
-4. **Implement the service** in `service.py` with class methods that call `crud_widgets`, raise `DomainError` subclasses on bad state.
-5. **Define routes** in `routes.py`. Wrap the service, catch domain exceptions via `handle_exception`, return dicts (FastAPI serializes through `response_model=WidgetRead`).
-6. **Register the router** in `interfaces/main.py` (or wherever your top-level routers are aggregated):
+1. **Implement the service** in `service.py` with class methods that call `crud_widgets`, raise `DomainError` subclasses on bad state.
+1. **Define routes** in `routes.py`. Wrap the service, catch domain exceptions via `handle_exception`, return dicts (FastAPI serializes through `response_model=WidgetRead`).
+1. **Register the router** in `interfaces/main.py` (or wherever your top-level routers are aggregated):
    ```python
    from src.modules.widgets.routes import router as widgets_router
+
    api_v1.include_router(widgets_router, prefix="/widgets")
    ```
-7. **Generate a migration**:
+1. **Generate a migration**:
    ```bash
    cd backend
    uv run alembic revision --autogenerate -m "Add widget model"
    uv run alembic upgrade head
    ```
    Note: `validate_production_migration` runs at the start of `env.py` and refuses to apply migrations in production unless `CONFIRM_PRODUCTION_MIGRATION=yes` is set. Local development is unaffected.
-8. **(Optional)** Add a `WidgetAdmin` view — see [Admin Panel → Adding Models](admin-panel/adding-models.md).
+1. **(Optional)** Add a `WidgetAdmin` view — see [Admin Panel → Adding Models](admin-panel/adding-models.md).
 
 The Alembic env (`backend/migrations/env.py`) auto-discovers models via `import_models("src.modules")`, so new modules are picked up by `--autogenerate` without any manual import wiring — provided your model is in `modules/<name>/models.py`.
 
@@ -239,6 +241,7 @@ If a user reports being logged out unexpectedly, check the session backend direc
 
 ```python
 from src.infrastructure.auth.session import SessionManager
+
 manager = SessionManager()
 sessions = await manager.get_user_sessions(user_id=42)
 ```
@@ -323,7 +326,7 @@ Then a smoke test:
 ```python
 # tests/test_smoke.py
 async def test_health(client):
-    response = await client.get("/api/v1/health")
+    response = await client.get("/health")
     assert response.status_code == 200
 ```
 
@@ -340,8 +343,8 @@ Settings live in `backend/src/infrastructure/config/settings.py`. To add a new e
    class WidgetSettings(BaseSettings):
        WIDGET_BATCH_SIZE: int = config("WIDGET_BATCH_SIZE", default=100, cast=int)
    ```
-2. Add it to the composed `Settings` mixin list at the bottom of `settings.py`.
-3. Document the env var in `backend/.env.example`.
+1. Add it to the composed `Settings` mixin list at the bottom of `settings.py`.
+1. Document the env var in `backend/.env.example`.
 
 Then read it via `get_settings().WIDGET_BATCH_SIZE`.
 
@@ -351,14 +354,14 @@ See [Configuration → Settings Classes](configuration/settings-classes.md) for 
 
 Most major subsystems toggle via env vars rather than code changes:
 
-| Subsystem        | Toggle                                | Effect                                      |
-|------------------|---------------------------------------|---------------------------------------------|
-| Cache            | `CACHE_ENABLED=false`                 | `@cache` becomes a no-op                    |
-| Client cache     | `CLIENT_CACHE_ENABLED=false`          | Middleware doesn't mount                    |
-| Rate limiter     | `RATE_LIMITER_ENABLED=false`          | `check_rate_limit` returns immediately      |
-| Background tasks | Don't run the worker                  | The broker is created but no consumer       |
-| Admin panel      | `ADMIN_ENABLED=false`                 | `/admin` is unmounted                       |
-| Documentation    | `OPENAPI_URL=`                        | Disables `/docs` and `/redoc`               |
+| Subsystem        | Toggle                       | Effect                                 |
+| ---------------- | ---------------------------- | -------------------------------------- |
+| Cache            | `CACHE_ENABLED=false`        | `@cache` becomes a no-op               |
+| Client cache     | `CLIENT_CACHE_ENABLED=false` | Middleware doesn't mount               |
+| Rate limiter     | `RATE_LIMITER_ENABLED=false` | `check_rate_limit` returns immediately |
+| Background tasks | Don't run the worker         | The broker is created but no consumer  |
+| Admin panel      | `ADMIN_ENABLED=false`        | `/admin` is unmounted                  |
+| Documentation    | `OPENAPI_URL=`               | Disables `/docs` and `/redoc`          |
 
 Removing a subsystem entirely (deleting the code) is rare and usually wrong — leaving it disabled costs nothing.
 
@@ -386,15 +389,15 @@ The `@cache` decorator inspects `request.method` to decide read vs invalidate. T
 
 ## Key Files
 
-| Component                    | Location                                                    |
-|------------------------------|-------------------------------------------------------------|
-| App factory / middleware order | `backend/src/infrastructure/app_factory.py`              |
-| Settings                     | `backend/src/infrastructure/config/settings.py`             |
-| Lifespan / startup           | `backend/src/infrastructure/app_factory.py:lifespan_factory`|
-| Database session             | `backend/src/infrastructure/database/session.py`            |
-| Module template (reference)  | `backend/src/modules/user/`                                 |
-| Pre-commit                   | `.pre-commit-config.yaml`                                   |
-| pyproject (lint / type / test) | `backend/pyproject.toml`                                  |
+| Component                      | Location                                                     |
+| ------------------------------ | ------------------------------------------------------------ |
+| App factory / middleware order | `backend/src/infrastructure/app_factory.py`                  |
+| Settings                       | `backend/src/infrastructure/config/settings.py`              |
+| Lifespan / startup             | `backend/src/infrastructure/app_factory.py:lifespan_factory` |
+| Database session               | `backend/src/infrastructure/database/session.py`             |
+| Module template (reference)    | `backend/src/modules/user/`                                  |
+| Pre-commit                     | `.pre-commit-config.yaml`                                    |
+| pyproject (lint / type / test) | `backend/pyproject.toml`                                     |
 
 ## Next Steps
 

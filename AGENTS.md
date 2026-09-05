@@ -68,7 +68,7 @@ Planned public endpoints include:
 - `GET /api/v1/jobs/{job_id}`
 - `GET /api/v1/jobs/{job_id}/results`
 - `GET /api/v1/models`
-- `GET /api/v1/health`
+- `GET /health`
 
 ## Implementation Rules
 
@@ -128,12 +128,19 @@ Testing expectations:
 This repository intentionally keeps only two agent entry points:
 
 - `AGENTS.md` for Codex and other agents that understand the AGENTS convention.
+
 - `CLAUDE.md` for Claude, pointing back to this file.
 
 - Start by reading the canonical context files relevant to the task.
+
 - Prefer `rg` for repository search.
+
 - Use existing commands and project tooling from `README.md` and `backend/pyproject.toml`.
+
 - For code edits, keep style consistent with nearby files.
+
 - Preserve user changes in the working tree.
+
 - When asked for a plan, update the relevant plan file instead of only answering in chat.
+
 - When asked to implement, edit, test, and report evidence.
