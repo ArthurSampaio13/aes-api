@@ -1,0 +1,29 @@
+image:
+  repository: aes-api
+  tag: dev
+  pullPolicy: IfNotPresent
+
+codeVersion: local
+
+api:
+  replicas: 1
+  port: 8000
+  nodePort: 30080
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 768Mi
+
+worker:
+  replicas: 1
+  metricsPort: 9464
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 768Mi
+
+envSecretName: aes-api-env

@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aes-api.name" . }}-worker
+  labels:
+    {{- include "aes-api.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "aes-api.name" . }}-worker
+  template:
+    metadata:
+      labels:
+        app: {{ include "aes-api.name" . }}-worker
+        {{- include "aes-api.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: worker
+          image: {{ include "aes-api.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["taskiq", "worker", "infrastructure.taskiq.worker:default_broker", "modules.aes.worker"]
+          workingDir: /app/src
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.worker.metricsPort }}
+          env:
+            - name: CODE_VERSION
+              value: {{ .Values.codeVersion | quote }}
+            - name: WORKER_METRICS_PORT
+              value: {{ .Values.worker.metricsPort | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.envSecretName }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
