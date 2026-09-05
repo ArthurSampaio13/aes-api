@@ -1,6 +1,7 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi import Request
 
 from src.modules.aes.routes import get_essay_prompt, get_rubric
 
@@ -17,8 +18,6 @@ async def test_get_essay_prompt_is_decorated_with_cache():
 
 @pytest.mark.asyncio
 async def test_get_rubric_second_call_does_not_hit_service():
-    from fastapi import Request
-
     request = Request(scope={"type": "http", "method": "GET", "headers": []})
     aes_service = AsyncMock()
     aes_service.get_rubric.return_value = {"id": 1, "version": 1, "criteria": {}, "municipio_id": None}
@@ -37,8 +36,6 @@ async def test_get_rubric_second_call_does_not_hit_service():
 
 @pytest.mark.asyncio
 async def test_get_rubric_cache_key_is_scoped_by_municipio():
-    from fastapi import Request
-
     request = Request(scope={"type": "http", "method": "GET", "headers": []})
     aes_service = AsyncMock()
     aes_service.get_rubric.return_value = {"id": 1, "version": 1, "criteria": {}, "municipio_id": 7}

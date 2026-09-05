@@ -1,3 +1,5 @@
+import sqladmin
+
 from src.interfaces.admin.views import (
     BatchAdmin,
     CorrectionAttemptAdmin,
@@ -38,8 +40,6 @@ def test_correction_views_are_read_only():
 
 
 def test_register_admin_views_includes_correction_views():
-    import sqladmin
-
     admin = sqladmin.Admin.__new__(sqladmin.Admin)
     admin._views = []
     admin.add_view = lambda view: admin._views.append(view)

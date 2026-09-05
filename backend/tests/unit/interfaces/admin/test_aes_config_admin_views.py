@@ -1,3 +1,5 @@
+import sqladmin
+
 from src.interfaces.admin.views import (
     EssayPromptAdmin,
     MunicipioAdmin,
@@ -27,8 +29,6 @@ def test_essay_prompt_admin_targets_essay_prompt_model():
 
 
 def test_register_admin_views_includes_aes_config_views():
-    import sqladmin
-
     admin = sqladmin.Admin.__new__(sqladmin.Admin)
     admin._views = []
     admin.add_view = lambda view: admin._views.append(view)

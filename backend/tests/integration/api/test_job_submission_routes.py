@@ -1,11 +1,17 @@
 import pytest
 
+from src.infrastructure.auth.session.dependencies import get_current_user, get_optional_user
 from src.interfaces.main import app
 from src.modules.aes import service as service_module
 from src.modules.aes.models.rubric import PromptTemplate
 from src.modules.aes.providers.base import FIXED_CRITERIA
 from src.modules.aes.storage import ObjectStorage, get_object_storage
+from src.modules.api_keys.crud import crud_key_permissions
+from src.modules.api_keys.enums import KeyPermissionAction, KeyPermissionResource
+from src.modules.api_keys.schemas import APIKeyCreate, KeyPermissionCreate
+from src.modules.api_keys.service import APIKeyService
 from src.modules.municipio.models import Municipio
+from src.modules.user.models import User
 
 
 async def _create_essay_prompt(auth_client, db_session, test_user):
@@ -159,14 +165,6 @@ async def test_submit_image_batch_rejects_unsupported_content_type(auth_client, 
 
 @pytest.mark.asyncio
 async def test_submit_batch_authenticates_via_api_key_header(auth_client, db_session, test_user):
-    from src.infrastructure.auth.session.dependencies import get_current_user, get_optional_user
-    from src.interfaces.main import app
-    from src.modules.api_keys.crud import crud_key_permissions
-    from src.modules.api_keys.enums import KeyPermissionAction, KeyPermissionResource
-    from src.modules.api_keys.schemas import APIKeyCreate, KeyPermissionCreate
-    from src.modules.api_keys.service import APIKeyService
-    from src.modules.user.models import User
-
     essay_prompt_uuid = await _create_essay_prompt(auth_client, db_session, test_user)
 
     key_user = User(
