@@ -48,7 +48,7 @@ variable "storage_bucket" {
 variable "sqs_queue_name" {
   description = "SQS queue backing the Taskiq broker"
   type        = string
-  default     = "default"
+  default     = "aes-corrections"
 }
 
 variable "kube_prometheus_stack_version" {
