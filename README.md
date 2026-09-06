@@ -1,233 +1,179 @@
-<h1 align="center">Fastro · The Benav Labs FastAPI Boilerplate</h1>
-<p align="center" markdown=1>
-  <i><b>Batteries-included FastAPI starter</b> - vertical-slice modules, swappable infrastructure, plugin-ready CLI.</i>
-</p>
-
-<p align="center">
-  <a href="https://benavlabs.github.io/FastAPI-boilerplate">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/fastro-cover-dark.png">
-      <img src="docs/assets/fastro-cover-light.png" alt="Fastro - open-source FastAPI boilerplate with auth, CRUD, jobs, caching and rate-limits" width="100%">
-    </picture>
-  </a>
-</p>
-
-<p align="center">
-<a href="https://benavlabs.github.io/FastAPI-boilerplate/">Docs</a> · <a href="https://deepwiki.com/benavlabs/FastAPI-boilerplate">DeepWiki</a> · <a href="https://discord.com/invite/TEmPs22gqB">Discord</a>
-</p>
-
-<p align="center">
-  <a href="https://fastapi.tiangolo.com">
-      <img src="https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi" alt="FastAPI">
-  </a>
-  <a href="https://www.postgresql.org">
-      <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL">
-  </a>
-  <a href="https://redis.io">
-      <img src="https://img.shields.io/badge/Redis-DC382D?logo=redis&logoColor=fff&style=for-the-badge" alt="Redis">
-  </a>
-  <a href="https://deepwiki.com/benavlabs/FastAPI-boilerplate">
-      <img src="https://img.shields.io/badge/DeepWiki-1F2937?style=for-the-badge&logoColor=white" alt="DeepWiki">
-  </a>
-</p>
+<h1 align="center">AES-API</h1>
 
 <p align="center" markdown=1>
-  <i>The free, open-source FastAPI foundation. Building a <b>SaaS</b> - AI or not? <a href="https://fastro.ai">FastroAI</a> adds payments, entitlements, email &amp; a frontend (plus AI) on top - <a href="#fastro-vs-fastroai">compare&nbsp;↓</a></i>
+  <i>Correção assistida de redações do Ensino Fundamental, baseada em LLM — com rubrica configurável, rastreabilidade por tentativa e revisão docente obrigatória.</i>
 </p>
 
-## AES — Assistive Essay Correction
+<p align="center">
+  <a href="https://fastapi.tiangolo.com"><img src="https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi" alt="FastAPI"></a>
+  <a href="https://www.postgresql.org"><img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL"></a>
+  <a href="https://opentofu.org"><img src="https://img.shields.io/badge/OpenTofu-FFDA18?style=for-the-badge&logo=opentofu&logoColor=black" alt="OpenTofu"></a>
+  <a href="https://kubernetes.io"><img src="https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white" alt="Kubernetes"></a>
+</p>
 
-This fork builds AES, an assistive LLM-based essay correction API for Ensino
-Fundamental — a TCC (undergraduate thesis) artifact built on top of this
-Fastro boilerplate. It is **not** an autonomous grader: every correction
-response carries `requires_teacher_review: true` and needs a teacher's review
-before it reaches a student.
+## O que é
 
-Run it locally on `kind`, matching the production deployment target:
+Professores do Ensino Fundamental corrigem muitas redações com pouco tempo, e
+os alunos recebem feedback esparso e inconsistente. Esta API ataca esse gargalo:
+recebe redações em texto ou imagem, processa de forma assíncrona, aplica uma
+rubrica versionada e devolve nota, justificativa e sugestão acionável por
+critério.
+
+É o artefato de software de um TCC sobre uso de LLMs na avaliação textual.
+
+**O que ele não é:** um corretor autônomo. Toda resposta carrega
+`requires_teacher_review: true` — não é uma flag desligável — e o resultado é
+ponto de partida para a revisão do professor, não substituto dela. O sistema
+não toma decisão de alto impacto sobre nenhum aluno.
+
+Também não há, neste repositório, validação em sala de aula, ganho de
+aprendizagem medido ou concordância com avaliadores humanos. O que existe é o
+protótipo funcional e sua evidência de execução.
+
+## Rubrica
+
+Cinco critérios fixos, alinhados a competências de escrita no estilo BNCC/SAEB:
+
+| Critério            | Avalia                          |
+| ------------------- | ------------------------------- |
+| `adequacao_tema`    | aderência ao tema proposto      |
+| `estrutura_textual` | estrutura do gênero pedido      |
+| `coesao_coerencia`  | articulação entre as ideias     |
+| `adequacao_ling`    | adequação à norma escrita       |
+| `vocabulario`       | repertório e precisão vocabular |
+
+Cada critério recebe nota, justificativa ancorada em evidência do próprio texto
+do aluno, e o resultado traz uma sugestão acionável de melhoria. Rubricas e
+templates de prompt são **versionados e imutáveis** — alterar cria uma versão
+nova, para que qualquer correção antiga continue reconstruível.
+
+## Como funciona
+
+```
+POST /jobs → valida → grava o original no storage S3-compatible
+           → cria Submission + CorrectionJob (pending)
+           → enfileira via Taskiq/SQS
+
+Worker → se imagem: OCR → transcrição
+       → provedor LLM corrige contra rubrica + prompt versionados
+       → valida a saída com Pydantic
+       → grava CorrectionAttempt (sucesso ou falha)
+       → sucesso: CorrectionResult + job done
+       → falha: nova tentativa, cada uma sua própria linha
+```
+
+**Provedores desacoplados por `Protocol`**, escolhidos por job: `mock`
+(determinístico, default em testes), `openrouter` e `bedrock` para correção;
+`mock` e `textract` para OCR. Trocar de modelo não exige mexer no worker — é o
+que viabiliza comparar condições experimentais.
+
+**Multi-tenancy por município** com Row-Level Security do PostgreSQL. O
+isolamento é garantido no banco, sob um papel `NOSUPERUSER NOBYPASSRLS`, e vale
+mesmo que uma query da aplicação esqueça de filtrar.
+
+## Rastreabilidade
+
+Cada tentativa de correção grava uma linha própria, com:
+
+`attempt_number` · `provider` · `model` · `prompt_version` · `rubric_version` ·
+`inference_params` · `tokens_in` / `tokens_out` · `latency_ms` ·
+`code_version` · `raw_response_ref` (resposta bruta no storage) ·
+`validation_errors` · `outcome` · `created_at`
+
+Isso permite reconstruir a cadeia completa de uma correção, incluindo as
+tentativas que falharam, e é o que torna o resultado auditável e reproduzível.
+
+## Rodando localmente
+
+Pré-requisitos: Docker, [mise](https://mise.jdx.dev), `uv`, `pre-commit`, 8 GB
+de RAM, portas 8000 e 3000 livres, e um token da LocalStack (o plano de
+estudante sai verificando conta do GitHub em
+[app.localstack.cloud](https://app.localstack.cloud)).
 
 ```bash
 make setup
 cp infra/terraform.tfvars.example infra/terraform.tfvars
-# edit infra/terraform.tfvars and set localstack_auth_token
+# preencha localstack_auth_token
 make up
 ```
 
-Full walkthrough, prerequisites, and troubleshooting in
+`make up` leva de nenhum cluster a API respondendo: OpenTofu cria o cluster
+`kind` com Postgres, LocalStack (S3 + SQS) e Prometheus/Grafana; o chart Helm
+sobe API e worker; as migrations rodam; e um seed cria município de
+demonstração, rubrica v1, template de prompt v1 e uma API key.
+
+```bash
+make creds    # API key e URLs
+make smoke    # fluxo fim a fim, com asserts
+make grafana  # dashboard de correções
+make down     # destrói tudo
+```
+
+Guia completo, passo a passo em curl e solução de problemas em
 [`docs/getting-started/running-aes.md`](docs/getting-started/running-aes.md).
 
-## Features
+## API
 
-- Fully async FastAPI + SQLAlchemy 2.0
-- Pydantic v2 models & validation
-- Server-side sessions + CSRF; OAuth (Google wired, GitHub scaffolded); API keys
-- Annotated type aliases for all FastAPI dependencies
-- Rate limiter with per-tier, per-path rules
-- FastCRUD for efficient CRUD & pagination
-- **SQLAdmin**-based admin panel (optional, env-toggled)
-- [Taskiq](https://taskiq-python.github.io/) workers (Redis or RabbitMQ broker)
-- Redis or Memcached caching (`@cache` decorator + provider API)
-- **Plugin-ready `bp` CLI** - generate compose files, audit env, mount third-party command/feature plugins
-- Docker Compose for local / prod / nginx-fronted (generated by the CLI)
-
-## Why and When to use it
-
-**Perfect if you want:**
-
-- A pragmatic starter with auth, CRUD, jobs, caching and rate-limits
-- **Sensible defaults** with the freedom to opt-out of modules
-- **A foundation that grows** - vertical-slice modules + a plugin-aware CLI for code generators
-- **Docs over boilerplate** in this README - depth lives on the [docs site](https://benavlabs.github.io/FastAPI-boilerplate/)
-
-> **Not a fit** if you need a monorepo microservices scaffold - [see the docs](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/project-structure/) for pointers.
-
-**What you get:**
-
-- **App**: FastAPI [app factory](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/project-structure/), env-aware docs exposure
-- **Auth**: [server-side sessions](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/authentication/sessions/), CSRF, [OAuth](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/authentication/), [API keys](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/authentication/permissions/)
-- **DB**: Postgres + SQLAlchemy 2.0, [Alembic migrations](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/database/migrations/) with prod-confirm gate
-- **CRUD**: [FastCRUD generics](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/database/crud/)
-- **Caching**: [decorator + provider API](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/caching/) (Redis or Memcached)
-- **Queues**: [Taskiq workers](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/background-tasks/) (Redis or RabbitMQ)
-- **Rate limits**: [per-tier + per-path rules](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/rate-limiting/)
-- **Admin**: [SQLAdmin views](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/admin-panel/) (optional, env-toggled)
-- **CLI**: [`bp` tool](https://benavlabs.github.io/FastAPI-boilerplate/cli/) for compose scaffolding, env audits, and plugin extensions
-
-## Fastro vs FastroAI
-
-This boilerplate - **Fastro** - is the free, open-source **foundation**: everything you need for a production FastAPI backend. **[FastroAI](https://fastro.ai)** is the paid template built on the same foundation for shipping a **complete SaaS** - Stripe billing (subscriptions, credits, discounts), entitlements, transactional email, and a frontend, all wired together. Building an **AI** product? The PydanticAI agent layer is included too - but every paid feature fits a regular SaaS just as well.
-
-|                                                                    | **Fastro** (this repo · free) |     **FastroAI** (paid)     |
-| ------------------------------------------------------------------ | :---------------------------: | :-------------------------: |
-| FastAPI + SQLAlchemy 2.0, Pydantic v2                              |               ✓               |              ✓              |
-| Auth - sessions, OAuth, API keys                                   |               ✓               |         ✓ **+ JWT**         |
-| FastCRUD · SQLAdmin · Alembic                                      |               ✓               |              ✓              |
-| Caching · rate limiting · Taskiq jobs                              |               ✓               |              ✓              |
-| Docker (local / prod / nginx)                                      |               ✓               |              ✓              |
-| `bp` CLI - scaffolding, env audit, plugins                         |               ✓               |                             |
-| **Payments** - Stripe: subscriptions, credits, discounts, webhooks |                               |              ✓              |
-| **Entitlements** - feature gating by plan/tier                     |                               |              ✓              |
-| **Transactional email** & notifications                            |                               |              ✓              |
-| **Frontend** - Astro landing / marketing site                      |                               |              ✓              |
-| **Observability** - Logfire tracing & metrics                      |                               |              ✓              |
-| **AI agents** - PydanticAI: memory, tools, usage tracking          |                               |              ✓              |
-| Support                                                            |      Community · Discord      | Priority · lifetime updates |
-
-<p align="center">
-  <a href="https://fastro.ai">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/fastroai-card-dark.png">
-      <img src="docs/assets/fastroai-card-light.png" alt="FastroAI - the complete SaaS template: payments, entitlements, email, frontend and AI on top of Fastro" width="100%">
-    </picture>
-  </a>
-</p>
-
-**Stick with Fastro** if you want a clean, hackable FastAPI backend to build on.
-**[Get FastroAI →](https://fastro.ai)** if you're shipping a SaaS - AI or not - and want billing, entitlements, email, auth, and a frontend ready out of the box.
-
-## Repo Layout
-
-This is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/) with two members. One venv at the root covers both.
-
-```text
-fastapi-boilerplate/
-├── pyproject.toml          # workspace root (uv workspace metadata)
-├── backend/                # the deployable application
-│   ├── src/                # interfaces/, infrastructure/, modules/
-│   ├── pyproject.toml
-│   └── Dockerfile          # multi-stage: dev / migrate / prod
-└── cli/                    # `bp` - developer/operator tool (never ships in prod)
-    └── src/cli/
+```
+POST   /api/v1/aes/rubrics
+GET    /api/v1/aes/rubrics/{id}
+POST   /api/v1/aes/essay-prompts
+GET    /api/v1/aes/essay-prompts/{uuid}
+POST   /api/v1/aes/jobs               # lote de textos
+POST   /api/v1/aes/jobs/images        # lote de imagens (multipart)
+GET    /api/v1/aes/jobs/{job_id}
+GET    /api/v1/aes/jobs/{job_id}/results
+GET    /api/v1/aes/models             # provedores disponíveis
+GET    /health
+GET    /metrics
 ```
 
-## Quickstart
+Autenticação por API key ou sessão, com permissões por recurso. Swagger em
+`/docs`.
+
+## Layout
+
+| Caminho                       | Conteúdo                                                        |
+| ----------------------------- | --------------------------------------------------------------- |
+| `backend/src/modules/aes/`    | domínio da correção: models, providers, worker, rotas           |
+| `backend/src/infrastructure/` | auth, banco, cache, filas, logging, RLS                         |
+| `backend/migrations/`         | Alembic, com as políticas de RLS                                |
+| `infra/`                      | OpenTofu: cluster `kind` e plataforma                           |
+| `charts/aes-api/`             | chart Helm da aplicação, com dashboard e ServiceMonitors        |
+| `cli/`                        | `bp`, ferramenta de desenvolvimento (compose, auditoria de env) |
+| `scripts/smoke.sh`            | teste de fumaça fim a fim                                       |
+
+## Desenvolvimento
 
 ```bash
-git clone https://github.com/<you>/FastAPI-boilerplate
-cd FastAPI-boilerplate
-uv sync --all-packages --all-extras           # one venv at the root, both members installed
+cd backend && uv run pytest          # 418 testes
+cd backend && uv run ruff check && uv run mypy src
+make build && make kind-load && make deploy   # recarrega o cluster
 ```
 
-Generate a compose file for the deployment shape you want:
+O `kind-load` no meio não é opcional: a tag da imagem não muda e o
+`imagePullPolicy` é `IfNotPresent`, então sem ele o cluster segue rodando o
+código antigo.
+
+Sem Kubernetes, para iterar mais rápido:
 
 ```bash
-uv run bp deploy generate local               # hot-reload dev stack
-# or: uv run bp deploy generate prod          # production single-host
-# or: uv run bp deploy generate nginx         # production behind nginx
+uv run bp deploy generate local && docker compose up --build
 ```
 
-Configure your env (the CLI helps with secrets and validation):
+## Privacidade
 
-```bash
-cp backend/.env.example backend/.env
-uv run bp env gen-secret                      # print a fresh SECRET_KEY
-uv run bp env validate                        # audit .env against the production validator
-```
+Texto de redação é tratado como dado sensível de estudante. Nenhuma linha de
+log carrega conteúdo da redação — há teste automatizado afirmando isso, e os
+sinks do Loguru rodam com `diagnose=False` para que tracebacks não vazem
+variáveis locais. Exemplos e testes usam redações sintéticas.
 
-Bring it up:
+## Construído sobre
 
-```bash
-docker compose up --build
-# → http://127.0.0.1:8000  (Swagger at /docs)
-```
+O [Fastro / FastAPI-boilerplate](https://github.com/benavlabs/FastAPI-boilerplate)
+da Benav Labs, que fornece a base de autenticação, CRUD, cache, rate limiting,
+filas e o CLI `bp`.
 
-**Without Docker** (Postgres + Redis required locally):
+## Licença
 
-```bash
-cd backend
-uv run alembic upgrade head
-uv run python -m scripts.setup_initial_data   # creates the first admin user + default tier
-uv run fastapi dev src/interfaces/main.py     # API
-uv run taskiq worker infrastructure.taskiq.worker:default_broker  # in a second terminal
-```
-
-> Full setup, env-var reference, and per-environment deployment guides live in the [docs](https://benavlabs.github.io/FastAPI-boilerplate/getting-started/installation/).
-
-## Common tasks
-
-```bash
-# generate a fresh production-ready compose file
-uv run bp deploy generate prod --workers 8
-
-# audit your .env against the production security validator
-uv run bp env validate
-
-# run Alembic migrations
-cd backend && uv run alembic revision --autogenerate -m "<msg>" && uv run alembic upgrade head
-
-# run tests
-cd backend && uv run pytest
-
-# install bp as a global tool (optional)
-uv tool install --editable ./cli
-```
-
-More examples (superuser creation, tiers, rate limits, admin usage, plugin authoring) in the [docs](https://benavlabs.github.io/FastAPI-boilerplate/).
-
-## Contributing
-
-Read [contributing](CONTRIBUTING.md).
-
-## References
-
-This project was inspired by a few projects, it's based on them with things changed to the way I like (and pydantic, sqlalchemy updated)
-
-- [`Full Stack FastAPI and PostgreSQL`](https://github.com/tiangolo/full-stack-fastapi-postgresql) by @tiangolo himself
-- [`FastAPI Microservices`](https://github.com/Kludex/fastapi-microservices) by @kludex which heavily inspired this boilerplate
-- [`Async Web API with FastAPI + SQLAlchemy 2.0`](https://github.com/rhoboro/async-fastapi-sqlalchemy) for sqlalchemy 2.0 ORM examples
-- [`FastaAPI Rocket Boilerplate`](https://github.com/asacristani/fastapi-rocket-boilerplate/tree/main) for docker compose
-
-## License
-
-[`MIT`](LICENSE.md)
-
-## Contact
-
-Benav Labs – [benav.io](https://benav.io), [discord server](https://discord.com/invite/TEmPs22gqB)
-
-<hr>
-<a href="https://benav.io">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/benav-labs-banner-dark.png">
-    <img src="docs/assets/benav-labs-banner-light.png" alt="Benav Labs - benav.io" width="100%"/>
-  </picture>
-</a>
+[MIT](LICENSE.md)
