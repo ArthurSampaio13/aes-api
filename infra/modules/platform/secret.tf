@@ -32,7 +32,14 @@ resource "kubernetes_secret" "app_env" {
     CACHE_BACKEND        = "memory"
     SESSION_BACKEND      = "memory"
     RATE_LIMITER_ENABLED = "false"
-    AES_OCR_PROVIDER     = "mock"
+    AES_OCR_PROVIDER     = var.ocr_provider
+
+    # O boto3 monta credenciais sozinho a partir destas tres: troca o token do
+    # service account projetado por credenciais temporarias via
+    # AssumeRoleWithWebIdentity. Nao ha chave estatica em lugar nenhum.
+    AWS_ROLE_ARN                = var.aws_role_arn
+    AWS_WEB_IDENTITY_TOKEN_FILE = "/var/run/secrets/aws/token"
+    AWS_REGION                  = var.aws_region
 
     SESSION_SECURE_COOKIES                 = "false"
     PRODUCTION_SECURITY_VALIDATION_ENABLED = "false"

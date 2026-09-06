@@ -8,3 +8,13 @@ groq_api_key       = ""
 cerebras_api_key   = ""
 github_api_key     = ""
 gemini_api_key     = ""
+
+# Textract roda na AWS de verdade: nao ha emulacao no LocalStack. O perfil local
+# abaixo provisiona o bucket do emissor OIDC e a role; os pods nao usam chave
+# nenhuma, eles trocam o token do service account por credenciais temporarias.
+# Textract nao existe em sa-east-1 — mantenha uma regiao que o ofereca.
+aws_profile = "tcc"
+aws_region  = "us-east-1"
+
+# textract chama a AWS; mock mantem tudo offline.
+ocr_provider = "textract"

@@ -17,6 +17,9 @@ thing end to end.
 - 8 GB of RAM free for the cluster (Postgres, LocalStack, the app, and
   kube-prometheus-stack all run as pods on your machine)
 - Ports `8000` and `3000` free on the host (API and Grafana)
+- An AWS account and a local profile (default `tcc`). OpenTofu provisions an S3
+  bucket and an IAM role there, and Textract runs on real AWS — LocalStack does
+  not emulate it. See [Textract and the assumed role](#11-textract-and-the-assumed-role).
 
 Install the pinned tools and the git hooks:
 
@@ -338,3 +341,68 @@ Destroys everything OpenTofu created and deletes the `kind` cluster.
 **`make creds` shows the IDs but no API key**
 : Neither the `aes-api-bootstrap-key` Secret nor the seed Job's log has it.
   Run `make reissue-key`.
+
+## 11. Textract and the assumed role
+
+OCR runs on real AWS Textract. The pods hold **no AWS credentials** — not an
+access key, not a mounted `~/.aws`. They authenticate the way a workload on EKS
+would, and every piece of it is provisioned by OpenTofu.
+
+### Why this is not just a key in a Secret
+
+`kind` is not EKS, so IRSA is unavailable. The alternative would be a static
+access key living in the cluster and in the Tofu state. Instead the cluster acts
+as its own OIDC identity provider:
+
+1. `modules/oidc-issuer` creates a public S3 bucket and publishes an OpenID
+   discovery document there. The name is a truncated SHA-256 of your AWS account
+   id — deterministic, so the issuer stays stable and is known at plan time, but
+   the account id does not sit in clear text on a public bucket. Treat that hash
+   as obfuscation, not a secret: an account id is 12 digits, so anyone holding
+   the bucket name can reverse it by brute force.
+2. The `kind` cluster is created with `service-account-issuer` pointing at that
+   bucket, so every service account token it mints carries that issuer.
+3. `modules/oidc-trust` reads the cluster's public signing keys from
+   `/openid/v1/jwks`, publishes them as `keys.json`, registers the bucket as an
+   IAM OIDC provider, and creates the role `aes-api-textract` — trusted only for
+   `system:serviceaccount:aes:aes-api` with audience `sts.amazonaws.com`, and
+   allowed only `textract:DetectDocumentText`.
+4. The chart mounts a projected service account token at
+   `/var/run/secrets/aws/token`. Given `AWS_ROLE_ARN` and
+   `AWS_WEB_IDENTITY_TOKEN_FILE`, boto3 calls `AssumeRoleWithWebIdentity` on its
+   own and refreshes the credentials as the kubelet rotates the token.
+
+The bucket is public on purpose and holds only public signing keys and a
+discovery document — the same material any OIDC provider serves openly. It holds
+no secret.
+
+To confirm the pod is running as the role rather than as a user:
+
+```bash
+kubectl -n aes exec deploy/aes-api-api -- \
+  python -c "import boto3; print(boto3.client('sts').get_caller_identity()['Arn'])"
+```
+
+It should print an `assumed-role/aes-api-textract/...` ARN.
+
+### Switching OCR off
+
+Set `ocr_provider = "mock"` in `infra/terraform.tfvars` and re-run `make infra`.
+The mock returns a fixed string and never touches AWS, so image submissions
+still exercise upload, storage, queue and correction — just not transcription.
+
+!!! warning "Replacing the cluster needs two runs"
+    The issuer is baked into the kubeadm config, so changing it replaces the
+    `kind` cluster. Terraform refreshed the `kubernetes_*` resources before that
+    replacement, so the first run fails with `secrets "aes-api-env" not found`.
+    Run it again and it converges — the second run sees the resources are gone
+    and recreates them. A fresh `make up` can also fail once on
+    `no matches for kind "ServiceMonitor"`, when the chart is applied before
+    kube-prometheus-stack finishes installing its CRDs; the same retry fixes it.
+
+!!! danger "Textract is not free and handwriting is the hard case"
+    `DetectDocumentText` costs about US$1.50 per 1000 pages. More importantly,
+    it is document OCR: printed text transcribes cleanly, but a
+    Ensino Fundamental student's handwriting is the worst case for this class of
+    model. The transcription quality becomes the ceiling for the whole
+    correction, which is worth measuring rather than assuming.

@@ -67,3 +67,21 @@ variable "gemini_api_key" {
   sensitive   = true
   default     = ""
 }
+
+variable "aws_profile" {
+  description = "Local AWS profile used to provision the OIDC bucket and IAM role"
+  type        = string
+  default     = "tcc"
+}
+
+variable "aws_region" {
+  description = "Textract is not offered in sa-east-1; keep this on a region that has it"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "ocr_provider" {
+  description = "mock keeps the stack offline; textract calls real AWS through the assumed role"
+  type        = string
+  default     = "textract"
+}

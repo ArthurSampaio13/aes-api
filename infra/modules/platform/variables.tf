@@ -91,3 +91,17 @@ variable "gemini_api_key" {
   sensitive   = true
   default     = ""
 }
+
+variable "aws_role_arn" {
+  description = "Role assumed by the API and worker through their projected service account token"
+  type        = string
+}
+
+variable "aws_region" {
+  type = string
+}
+
+variable "ocr_provider" {
+  description = "mock keeps everything offline; textract calls real AWS"
+  type        = string
+}

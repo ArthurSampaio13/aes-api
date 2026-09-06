@@ -3,7 +3,8 @@
 from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
 
-from fastapi import Depends, Header
+from fastapi import Depends, Security
+from fastapi.security import APIKeyHeader
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...modules.api_keys.enums import KeyPermissionAction, KeyPermissionResource
@@ -12,6 +13,11 @@ from ...modules.user.crud import crud_users
 from ..database.session import async_session
 from .http_exceptions import UnauthorizedException
 from .session.dependencies import get_optional_user, verify_csrf_token
+
+# APIKeyHeader e um SecurityBase: e o que faz o OpenAPI emitir securitySchemes e,
+# com isso, o cadeado e o botao Authorize no Swagger. Um Header() comum nao emite.
+# auto_error=False mantem o fallback de sessao possivel quando o header falta.
+api_key_header = APIKeyHeader(name="X-API-Key", scheme_name="APIKeyHeader", auto_error=False)
 
 
 def get_current_principal(
@@ -29,7 +35,7 @@ def get_current_principal(
     async def _resolve(
         db: Annotated[AsyncSession, Depends(async_session)],
         _csrf: Annotated[None, Depends(verify_csrf_token)],
-        x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+        x_api_key: Annotated[str | None, Security(api_key_header)] = None,
         session_user: Annotated[dict[str, Any] | None, Depends(get_optional_user)] = None,
     ) -> dict[str, Any]:
         if x_api_key is None:

@@ -1,6 +1,7 @@
 from typing import Annotated, Any
 
-from fastapi import Cookie, Depends, Header, Request
+from fastapi import Cookie, Depends, Header, Request, Security
+from fastapi.security import APIKeyCookie
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +23,9 @@ from .storage import AbstractSessionStorage, get_session_storage
 settings = get_settings()
 
 _session_manager: SessionManager | None = None
+
+# Mesmo motivo do APIKeyHeader: um Cookie() comum vira parametro e nao gera cadeado.
+session_cookie = APIKeyCookie(name="session_id", scheme_name="SessionCookie", auto_error=False)
 
 
 def get_session_manager() -> SessionManager:
@@ -76,7 +80,7 @@ def get_session_manager() -> SessionManager:
 
 async def get_session_from_cookie(
     request: Request,
-    session_id: str | None = Cookie(None),
+    session_id: Annotated[str | None, Security(session_cookie)] = None,
     session_manager: SessionManager = Depends(get_session_manager),
 ) -> SessionData | None:
     """Get session data from cookie, validating it.

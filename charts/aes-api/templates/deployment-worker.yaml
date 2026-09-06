@@ -15,6 +15,18 @@ spec:
         app: {{ include "aes-api.name" . }}-worker
         {{- include "aes-api.labels" . | nindent 8 }}
     spec:
+      serviceAccountName: {{ include "aes-api.name" . }}
+      volumes:
+        # O kubelet renova este token; o boto3 o troca por credenciais
+        # temporarias via AssumeRoleWithWebIdentity. A audiencia precisa bater
+        # com o client_id_list do provider OIDC no IAM.
+        - name: aws-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: sts.amazonaws.com
+                  expirationSeconds: 3600
+                  path: token
       containers:
         - name: worker
           image: {{ include "aes-api.image" . }}
@@ -34,5 +46,9 @@ spec:
           envFrom:
             - secretRef:
                 name: {{ .Values.envSecretName }}
+          volumeMounts:
+            - name: aws-token
+              mountPath: /var/run/secrets/aws
+              readOnly: true
           resources:
             {{- toYaml .Values.worker.resources | nindent 12 }}
