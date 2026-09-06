@@ -103,10 +103,11 @@ sobe API e worker; as migrations rodam; e um seed cria município de
 demonstração, rubrica v1, template de prompt v1 e uma API key.
 
 ```bash
-make creds    # API key e URLs
-make smoke    # fluxo fim a fim, com asserts
-make grafana  # dashboard de correções
-make down     # destrói tudo
+make creds        # API key e URLs
+make smoke        # fluxo fim a fim, com asserts
+make grafana      # dashboard de correções
+make reissue-key  # emite uma API key nova, se a atual se perdeu
+make down         # destrói tudo
 ```
 
 Guia completo, passo a passo em curl e solução de problemas em
@@ -141,19 +142,21 @@ Autenticação por API key ou sessão, com permissões por recurso. Swagger em
 | `infra/`                      | OpenTofu: cluster `kind` e plataforma                           |
 | `charts/aes-api/`             | chart Helm da aplicação, com dashboard e ServiceMonitors        |
 | `cli/`                        | `bp`, ferramenta de desenvolvimento (compose, auditoria de env) |
-| `scripts/smoke.sh`            | teste de fumaça fim a fim                                       |
+| `scripts/`                    | `smoke.sh` fim a fim, `code-version.sh`, `bootstrap-key.sh`     |
 
 ## Desenvolvimento
 
 ```bash
 cd backend && uv run pytest          # 418 testes
 cd backend && uv run ruff check && uv run mypy src
-make build && make kind-load && make deploy   # recarrega o cluster
+make deploy                          # reconstrói, carrega e recarrega o cluster
 ```
 
-O `kind-load` no meio não é opcional: a tag da imagem não muda e o
-`imagePullPolicy` é `IfNotPresent`, então sem ele o cluster segue rodando o
-código antigo.
+`deploy` depende de `build` e `kind-load`, então basta ele. O `codeVersion`
+sai do conteúdo da imagem (`scripts/code-version.sh`), o que muda o Deployment
+sempre que o código muda e força o rollout — sem isso o cluster seguiria
+rodando o código antigo, já que a tag não muda e o `imagePullPolicy` é
+`IfNotPresent`.
 
 Sem Kubernetes, para iterar mais rápido:
 

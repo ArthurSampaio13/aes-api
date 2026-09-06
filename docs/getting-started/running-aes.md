@@ -53,15 +53,23 @@ every time you open a new shell.)
 make up
 ```
 
-`up` chains five targets:
+`up` chains `infra`, `deploy` (which pulls in `build` and `kind-load`), and
+`creds`:
 
 | Target      | What it does                                                                 |
 | ----------- | ----------------------------------------------------------------------------- |
 | `infra`     | `tofu apply` — creates the `kind` cluster, Postgres, LocalStack, the app Secret, and the Prometheus/Grafana stack |
-| `build`     | `docker build -f backend/Dockerfile -t aes-api:dev .` — builds the app image from the repo root |
-| `kind-load` | Loads that image into the `kind` cluster's nodes                              |
-| `deploy`    | `helm upgrade --install` — runs the Alembic migration Job, then the API and worker Deployments, then the seed Job |
-| `creds`     | Prints the API URL and the bootstrap credentials from the seed Job's logs     |
+| `build`     | `docker build -f backend/Dockerfile -t aes-api:dev .` — builds the app image from the repo root. A prerequisite of `deploy`; you rarely call it directly |
+| `kind-load` | Loads that image into the `kind` cluster's nodes. Also a prerequisite of `deploy` |
+| `deploy`    | `helm upgrade --install` — runs the Alembic migration Job, then the API and worker Deployments, then the seed Job. Waits for both rollouts to converge, then copies the bootstrap key into a Secret |
+| `creds`     | Prints the API URL, the seeded IDs, and the bootstrap API key                 |
+
+Two more you will want later:
+
+| Target        | What it does                                                               |
+| ------------- | -------------------------------------------------------------------------- |
+| `smoke`       | End-to-end check: asserts the pods run your locally built image, then drives a full correction through the API |
+| `reissue-key` | Drops the bootstrap API key and issues a fresh one — see [What you get](#4-what-you-get) |
 
 !!! warning "First run takes 6–10 minutes"
     Pulling the `kind` node image, the Postgres/LocalStack images, and the
@@ -81,7 +89,7 @@ make up
 | Município (tenant) | A demo município seeded                                          |
 | Tier           | A default tier seeded                                                 |
 | Superuser      | A first superuser seeded                                              |
-| API key        | A bootstrap API key issued for the demo município                     |
+| API key        | A bootstrap API key issued for the demo município, copied into the `aes-api-bootstrap-key` Secret so it survives redeploys |
 | Rubric         | Version 1, the five fixed criteria from `AGENTS.md`                   |
 | Prompt template | Version 1                                                             |
 
@@ -94,11 +102,14 @@ make creds
 !!! note "The API key only prints once"
     The seed Job detects an existing bootstrap key on a repeat `make deploy`
     and does not reissue it — so `make creds` on a second run will not show a
-    key line. That's expected, not a failure. If you lost the key, read it
-    back from the seed Job's own logs:
-    `kubectl -n aes logs job/aes-api-seed`. Do not `make down && make up` to
-    "fix" this — that destroys the Postgres volume, every generated password,
-    and the Tofu state, just to recover a string.
+    key line. That is fine: `make deploy` copies the key into a Secret
+    (`aes-api-bootstrap-key`) the moment the seed issues it, and `make creds`
+    reads it back from there, so the value survives any number of redeploys.
+    If the key is genuinely gone — you deleted the Secret, or the row predates
+    this mechanism — run `make reissue-key`: it drops the `bootstrap` row and
+    the Secret, redeploys so the seed issues a fresh key, and prints it. Do not `make down && make up` to "fix" this — that destroys
+    the Postgres volume, every generated password, and the Tofu state, just to
+    recover a string.
 
 !!! warning "The bootstrap key bypasses tenant isolation"
     The seeded API key belongs to the platform superuser, and
@@ -269,13 +280,17 @@ k9s --kubeconfig ~/.kube/kind-aes-local.yaml
 There is no live-reload in the cluster. After a code change:
 
 ```bash
-make build && make kind-load && make deploy
+make deploy
 ```
 
-`build` rebuilds the image under the same `aes-api:dev` tag; `kind-load` is
-not optional here — the cluster's nodes cache images by tag, so skipping it
-leaves the pods running the old code even though `helm upgrade` re-applies
-the migration Job and restarts the API and worker Deployments.
+`deploy` depends on `build` and `kind-load`, so one target covers the whole
+loop. Both steps matter: the nodes cache images by tag, so without
+`kind-load` the pods keep the old code; and `helm upgrade` only rolls pods
+when the rendered manifest changes, which is why `codeVersion` is derived
+from the image content rather than from the git SHA.
+
+`make smoke` asserts the running pod's `CODE_VERSION` matches the locally
+built image, so a stale deploy fails loudly instead of passing.
 
 ## 8. Without Kubernetes
 
@@ -317,6 +332,9 @@ Destroys everything OpenTofu created and deletes the `kind` cluster.
   memory-heavy applications and retry.
 
 **Pods stuck in `ImagePullBackOff`**
-: The image was built but never loaded into the `kind` cluster's nodes — you
-  ran `make build` (or `make deploy`) without `make kind-load` in between.
-  Run `make kind-load` and re-run `make deploy`.
+: The image was built but never loaded into the `kind` cluster's nodes. Run
+  `make deploy`, which loads it before upgrading the release.
+
+**`make creds` shows the IDs but no API key**
+: Neither the `aes-api-bootstrap-key` Secret nor the seed Job's log has it.
+  Run `make reissue-key`.

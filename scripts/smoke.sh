@@ -7,11 +7,25 @@ NS="${NS:-aes}"
 log() { printf '\033[0;34m==>\033[0m %s\n' "$1"; }
 die() { printf '\033[0;31mFALHOU:\033[0m %s\n' "$1" >&2; exit 1; }
 
+log "deploy fresco"
+LOCAL_CV="$("$(dirname "$0")/code-version.sh" 2>/dev/null || true)"
+# Pods em terminacao ainda aparecem no get durante um rollout, e carregam o
+# code_version antigo; so os vivos contam.
+POD_CV="$(kubectl -n "$NS" get pods -l app=aes-api-api -o go-template='
+{{- range .items}}{{if not .metadata.deletionTimestamp}}
+{{- range .spec.containers}}{{range .env}}
+{{- if eq .name "CODE_VERSION"}}{{println .value}}{{end}}
+{{- end}}{{end}}{{end}}{{end}}' | sort -u)"
+[ -z "$LOCAL_CV" ] || [ "$LOCAL_CV" = "$POD_CV" ] \
+  || die "pods rodam code_version [$POD_CV], mas a imagem local é $LOCAL_CV; rode make deploy"
+
 SEED_LOG="$(kubectl -n "$NS" logs job/aes-api-seed 2>/dev/null || true)"
-API_KEY="${API_KEY:-$(printf '%s' "$SEED_LOG" | grep '^AES_BOOTSTRAP_API_KEY=' | cut -d= -f2-)}"
-RUBRIC_ID="$(printf '%s' "$SEED_LOG" | grep '^AES_RUBRIC_ID=' | cut -d= -f2-)"
-PROMPT_TEMPLATE_ID="$(printf '%s' "$SEED_LOG" | grep '^AES_PROMPT_TEMPLATE_ID=' | cut -d= -f2-)"
-[ -n "$API_KEY" ] || die "API key de bootstrap não encontrada nos logs do seed (ele não reemite a chave); passe API_KEY=... no ambiente"
+# Sem o `|| true` o set -e mata o script no grep vazio, antes do die explicar.
+grab() { printf '%s' "$SEED_LOG" | grep "^$1=" | cut -d= -f2- || true; }
+API_KEY="${API_KEY:-$("$(dirname "$0")/bootstrap-key.sh" get)}"
+RUBRIC_ID="$(grab AES_RUBRIC_ID)"
+PROMPT_TEMPLATE_ID="$(grab AES_PROMPT_TEMPLATE_ID)"
+[ -n "$API_KEY" ] || die "API key de bootstrap indisponível (nem no Secret, nem no log do seed); rode make reissue-key, ou passe API_KEY=... no ambiente"
 [ -n "$RUBRIC_ID" ] || die "rubric id não encontrado nos logs do seed"
 [ -n "$PROMPT_TEMPLATE_ID" ] || die "prompt template id não encontrado nos logs do seed"
 AUTH=(-H "X-API-Key: $API_KEY" -H "Content-Type: application/json")
