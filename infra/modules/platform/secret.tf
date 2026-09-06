@@ -9,7 +9,7 @@ resource "kubernetes_secret" "app_env" {
     namespace = kubernetes_namespace.app.metadata[0].name
   }
 
-  data = {
+  data = merge({
     POSTGRES_SERVER   = kubernetes_service.postgres.metadata[0].name
     POSTGRES_PORT     = "5432"
     POSTGRES_DB       = var.postgres_db
@@ -38,7 +38,19 @@ resource "kubernetes_secret" "app_env" {
     PRODUCTION_SECURITY_VALIDATION_ENABLED = "false"
 
     SECRET_KEY = random_password.app_secret_key.result
-  }
+  }, local.gateway_api_keys)
 
   depends_on = [kubernetes_stateful_set.postgres, kubernetes_deployment.localstack]
+}
+
+locals {
+  gateway_api_keys = {
+    for name, key in {
+      OPENROUTER_API_KEY = var.openrouter_api_key
+      GROQ_API_KEY       = var.groq_api_key
+      CEREBRAS_API_KEY   = var.cerebras_api_key
+      GITHUB_API_KEY     = var.github_api_key
+      GEMINI_API_KEY     = var.gemini_api_key
+    } : name => key if key != ""
+  }
 }

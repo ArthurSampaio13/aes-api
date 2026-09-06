@@ -196,6 +196,48 @@ Returns `scores` for the five fixed criteria (`adequacao_tema`,
     an autonomous final grade. A teacher reviews every correction before it
     reaches a student.
 
+## 5b. Using a real LLM provider
+
+The stack defaults to the `mock` correction provider — deterministic, free, and
+what every automated test uses. To run a correction against a real model, put a
+key in `infra/terraform.tfvars` and re-run `make infra`:
+
+```hcl
+groq_api_key = "gsk_..."
+```
+
+Then submit a job naming that provider:
+
+```bash
+curl -s "${AUTH[@]}" -X POST "$API/api/v1/aes/jobs" -d '{..., "provider": "groq", "model": "llama-3.3-70b-versatile"}'
+```
+
+`GET /api/v1/aes/models` reports which providers have credentials
+(`available: true`) without making a network call.
+
+Presets ship for these gateways, all OpenAI-compatible and all offering a
+no-credit-card free tier as verified on **2026-09-05** — free tiers change
+often, so check before relying on one:
+
+| provider | gateway | notes |
+| --- | --- | --- |
+| `openrouter` | OpenRouter | the default choice; use a `:free` model suffix |
+| `groq` | Groq | fastest free inference; ~30 req/min, 1,000 req/day |
+| `cerebras` | Cerebras | highest daily volume (~1M tokens/day) |
+| `github` | GitHub Models | free with a GitHub account; widest model catalogue |
+| `gemini` | Google AI Studio | a non-Llama model family, useful for comparison |
+
+Model names come from `{PROVIDER}_MODEL` settings and can be overridden per job.
+
+**Cerebras caveat:** structured-output support there is model-dependent — some
+models reject `tools` and `response_format` together, which surfaces as a
+`validation_error` on every attempt rather than a correction. If that happens,
+switch the model rather than the gateway.
+
+Adding another OpenAI-compatible gateway is a `base_url` entry in
+`GATEWAY_BASE_URLS` (`backend/src/modules/aes/providers/openai_compatible.py`)
+plus its key/model settings — no new provider class.
+
 ## 6. Observability
 
 ```bash

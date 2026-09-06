@@ -83,12 +83,20 @@ async def list_models(
     current_user: Annotated[dict[str, Any], Depends(_rubric_read)],
 ) -> list[dict[str, Any]]:
     settings = get_settings()
-    configured = {
+    fixed = {
         "mock": ("mock", True),
         "openrouter": (settings.OPENROUTER_MODEL, bool(settings.OPENROUTER_API_KEY)),
         "bedrock": (settings.BEDROCK_MODEL_ID, True),
     }
-    return [{"provider": name, "model": configured[name][0], "available": configured[name][1]} for name in PROVIDER_FACTORIES]
+    entries: list[dict[str, Any]] = []
+    for name in PROVIDER_FACTORIES:
+        if name in fixed:
+            model, available = fixed[name]
+        else:
+            model = getattr(settings, f"{name.upper()}_MODEL")
+            available = bool(getattr(settings, f"{name.upper()}_API_KEY", None))
+        entries.append({"provider": name, "model": model, "available": available})
+    return entries
 
 
 @router.post("/essay-prompts", status_code=201, response_model=EssayPromptRead)

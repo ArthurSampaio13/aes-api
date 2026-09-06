@@ -32,3 +32,38 @@ variable "localstack_auth_token" {
   type        = string
   sensitive   = true
 }
+
+variable "openrouter_api_key" {
+  description = "API key for the openrouter LLM gateway; leave empty to leave the provider unconfigured"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "groq_api_key" {
+  description = "API key for the groq LLM gateway; leave empty to leave the provider unconfigured"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "cerebras_api_key" {
+  description = "API key for the cerebras LLM gateway; leave empty to leave the provider unconfigured"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "github_api_key" {
+  description = "API key for the github LLM gateway; leave empty to leave the provider unconfigured"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "gemini_api_key" {
+  description = "API key for the gemini LLM gateway; leave empty to leave the provider unconfigured"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
