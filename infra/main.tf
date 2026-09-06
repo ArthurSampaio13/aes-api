@@ -37,6 +37,7 @@ module "platform" {
   vision_model_id       = var.vision_model_id
   kubeconfig_path       = module.kind_cluster.kubeconfig_path
   localstack_auth_token = var.localstack_auth_token
+  localstack_image      = var.localstack_image
   openrouter_api_key    = var.openrouter_api_key
   groq_api_key          = var.groq_api_key
   cerebras_api_key      = var.cerebras_api_key

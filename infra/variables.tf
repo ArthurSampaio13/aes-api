@@ -103,3 +103,9 @@ variable "vision_model_id" {
   type        = string
   default     = "us.xai.grok-4.6"
 }
+
+variable "localstack_image" {
+  description = "The license pins a minimum version: an image older than it fails activation and the container exits 55"
+  type        = string
+  default     = "localstack/localstack-pro:2026.8.1"
+}

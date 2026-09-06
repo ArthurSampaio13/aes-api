@@ -120,3 +120,8 @@ variable "vision_model_id" {
   description = "Multimodal inference profile used to transcribe handwriting"
   type        = string
 }
+
+variable "localstack_image" {
+  description = "Pro image; the community one ignores LOCALSTACK_AUTH_TOKEN and the web UI refuses to attach to it"
+  type        = string
+}

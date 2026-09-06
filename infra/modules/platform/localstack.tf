@@ -41,7 +41,7 @@ resource "kubernetes_deployment" "localstack" {
       spec {
         container {
           name  = "localstack"
-          image = "localstack/localstack:4"
+          image = var.localstack_image
 
           port {
             name           = "edge"
