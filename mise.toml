@@ -1,4 +1,6 @@
 [tools]
+uv = "0.11.19"
+pre-commit = "4.2.0"
 opentofu = "1.11.5"
 kind = "0.30.0"
 kubectl = "1.34.1"

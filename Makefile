@@ -1,39 +1,40 @@
 export KUBECONFIG ?= $(HOME)/.kube/kind-aes-local.yaml
 
 CLUSTER ?= aes-local
+MISE := mise exec --
 
 .PHONY: setup infra down status grafana creds smoke
 .NOTPARALLEL:
 
 setup:
 	mise install
-	pre-commit install
+	$(MISE) pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push
 
 infra:
-	tofu -chdir=infra init -upgrade
-	tofu -chdir=infra apply -auto-approve
+	$(MISE) tofu -chdir=infra init -upgrade
+	$(MISE) tofu -chdir=infra apply -auto-approve
 
 down:
-	tofu -chdir=infra destroy -auto-approve
-	-kind delete cluster --name $(CLUSTER)
+	$(MISE) tofu -chdir=infra destroy -auto-approve
+	-$(MISE) kind delete cluster --name $(CLUSTER)
 	rm -rf infra/.state
 
 status:
-	kubectl get pods -A
+	$(MISE) kubectl get pods -A
 
 grafana:
-	@echo "URL:  $$(tofu -chdir=infra output -raw grafana_url)"
+	@echo "URL:  $$($(MISE) tofu -chdir=infra output -raw grafana_url)"
 	@echo "user: admin"
-	@echo "pass: $$(tofu -chdir=infra output -raw grafana_password)"
+	@echo "pass: $$($(MISE) tofu -chdir=infra output -raw grafana_password)"
 
 creds:
-	@echo "API:   $$(tofu -chdir=infra output -raw api_url)"
-	@echo "Docs:  $$(tofu -chdir=infra output -raw api_url)/docs"
-	@kubectl -n aes logs job/aes-api-seed 2>/dev/null | grep -E '^AES_(BOOTSTRAP_API_KEY|RUBRIC_ID|PROMPT_TEMPLATE_ID)=' \
+	@echo "API:   $$($(MISE) tofu -chdir=infra output -raw api_url)"
+	@echo "Docs:  $$($(MISE) tofu -chdir=infra output -raw api_url)/docs"
+	@$(MISE) kubectl -n aes logs job/aes-api-seed 2>/dev/null | grep -E '^AES_(BOOTSTRAP_API_KEY|RUBRIC_ID|PROMPT_TEMPLATE_ID)=' \
 		|| echo "credenciais indisponíveis: rode make deploy"
 
 smoke:
-	scripts/smoke.sh
+	$(MISE) scripts/smoke.sh
 
 TAG ?= dev
 IMAGE ?= aes-api
@@ -47,10 +48,10 @@ build:
 	docker build -f backend/Dockerfile -t $(IMAGE):$(TAG) .
 
 kind-load:
-	kind load docker-image $(IMAGE):$(TAG) --name $(CLUSTER)
+	$(MISE) kind load docker-image $(IMAGE):$(TAG) --name $(CLUSTER)
 
 deploy:
-	helm upgrade --install aes-api charts/aes-api \
+	$(MISE) helm upgrade --install aes-api charts/aes-api \
 		--namespace aes \
 		--set image.repository=$(IMAGE) \
 		--set image.tag=$(TAG) \
