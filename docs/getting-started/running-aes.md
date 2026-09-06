@@ -9,10 +9,11 @@ thing end to end.
 ## 1. Prerequisites
 
 - Docker
-- [`mise`](https://mise.jdx.dev/) — pins `opentofu`, `kind`, `kubectl`, `helm`
-  and `k9s` to the versions this repo expects
-- `uv` and `pre-commit` on `PATH` — `mise.toml` does not pin either, so
-  `make setup` (`pre-commit install`) fails on a machine that lacks them
+- [`mise`](https://mise.jdx.dev/) — pins every other tool this repo needs
+  (`uv`, `pre-commit`, `opentofu`, `kind`, `kubectl`, `helm`, `k9s`,
+  `shellcheck`) to the versions it expects. The `Makefile` runs them through
+  `mise exec`, so `make` works whether or not `mise` is activated in your
+  shell.
 - 8 GB of RAM free for the cluster (Postgres, LocalStack, the app, and
   kube-prometheus-stack all run as pods on your machine)
 - Ports `8000` and `3000` free on the host (API and Grafana)

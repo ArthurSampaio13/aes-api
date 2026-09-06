@@ -85,8 +85,8 @@ tentativas que falharam, e é o que torna o resultado auditável e reproduzível
 
 ## Rodando localmente
 
-Pré-requisitos: Docker, [mise](https://mise.jdx.dev), `uv`, `pre-commit`, 8 GB
-de RAM, portas 8000 e 3000 livres, e um token da LocalStack (o plano de
+Pré-requisitos: Docker, [mise](https://mise.jdx.dev) — que pina todo o resto —,
+8 GB de RAM, portas 8000 e 3000 livres, e um token da LocalStack (o plano de
 estudante sai verificando conta do GitHub em
 [app.localstack.cloud](https://app.localstack.cloud)).
 
