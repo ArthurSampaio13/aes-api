@@ -41,6 +41,14 @@ resource "kubernetes_secret" "app_env" {
     AWS_WEB_IDENTITY_TOKEN_FILE = "/var/run/secrets/aws/token"
     AWS_REGION                  = var.aws_region
 
+    # Os modelos Claude na conta so aceitam chamada por inference profile; o
+    # model id nu devolve ValidationException.
+    BEDROCK_MODEL_ID = var.bedrock_model_id
+
+    # O provider ignora o campo `model` da requisicao e usa esta setting; o
+    # default do codigo aponta para um modelo que o OpenRouter ja removeu.
+    OPENROUTER_MODEL = var.openrouter_model
+
     SESSION_SECURE_COOKIES                 = "false"
     PRODUCTION_SECURITY_VALIDATION_ENABLED = "false"
 

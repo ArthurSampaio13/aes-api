@@ -105,3 +105,13 @@ variable "ocr_provider" {
   description = "mock keeps everything offline; textract calls real AWS"
   type        = string
 }
+
+variable "bedrock_model_id" {
+  description = "Bedrock inference profile used by the bedrock correction provider"
+  type        = string
+}
+
+variable "openrouter_model" {
+  description = "OpenRouter model id; free tiers come and go, so re-check before relying on one"
+  type        = string
+}

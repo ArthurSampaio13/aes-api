@@ -48,21 +48,44 @@ data "aws_iam_policy_document" "trust" {
   }
 }
 
-resource "aws_iam_role" "textract" {
-  name               = "aes-api-textract"
+resource "aws_iam_role" "workload" {
+  name               = "aes-api-workload"
   assume_role_policy = data.aws_iam_policy_document.trust.json
 }
 
-data "aws_iam_policy_document" "textract" {
+data "aws_caller_identity" "current" {}
+
+data "aws_iam_policy_document" "workload" {
   statement {
+    sid       = "OcrTranscription"
     effect    = "Allow"
     actions   = ["textract:DetectDocumentText"]
     resources = ["*"]
   }
+
+  # A Converse API roteia por um inference profile, entao a permissao precisa
+  # cobrir o profile e os foundation models para onde ele roteia — conceder so
+  # um dos dois devolve AccessDenied.
+  statement {
+    sid    = "CorrectionModels"
+    effect = "Allow"
+
+    actions = [
+      "bedrock:InvokeModel",
+      "bedrock:InvokeModelWithResponseStream",
+      "bedrock:Converse",
+      "bedrock:ConverseStream",
+    ]
+
+    resources = [
+      "arn:aws:bedrock:*::foundation-model/*",
+      "arn:aws:bedrock:*:${data.aws_caller_identity.current.account_id}:inference-profile/*",
+    ]
+  }
 }
 
-resource "aws_iam_role_policy" "textract" {
-  name   = "textract-detect-only"
-  role   = aws_iam_role.textract.id
-  policy = data.aws_iam_policy_document.textract.json
+resource "aws_iam_role_policy" "workload" {
+  name   = "textract-and-bedrock"
+  role   = aws_iam_role.workload.id
+  policy = data.aws_iam_policy_document.workload.json
 }

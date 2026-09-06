@@ -17,7 +17,12 @@ from .worker import run_correction_job
 
 _MAX_IMAGES_PER_BATCH = 50
 _MAX_IMAGE_BYTES = 10 * 1024 * 1024
-_ALLOWED_IMAGE_CONTENT_TYPES = {"image/jpeg": "jpg", "image/png": "png"}
+# PDF entra junto porque redacao escaneada costuma chegar nesse formato e o
+# DetectDocumentText sincrono do Textract le PDF de uma pagina. Com mais de uma
+# pagina ele recusa com UnsupportedDocumentException, e o job falha registrando
+# esse erro — nao validamos a contagem aqui para nao carregar um parser de PDF
+# so por isso.
+_ALLOWED_CONTENT_TYPES = {"image/jpeg": "jpg", "image/png": "png", "application/pdf": "pdf"}
 
 
 class AesService:
@@ -150,10 +155,10 @@ class AesService:
         if len(images) > _MAX_IMAGES_PER_BATCH:
             raise ValidationError(f"At most {_MAX_IMAGES_PER_BATCH} images are allowed per batch")
         for content, content_type in images:
-            if content_type not in _ALLOWED_IMAGE_CONTENT_TYPES:
-                raise ValidationError(f"Unsupported image content type: {content_type}")
+            if content_type not in _ALLOWED_CONTENT_TYPES:
+                raise ValidationError(f"Unsupported content type: {content_type}")
             if len(content) > _MAX_IMAGE_BYTES:
-                raise ValidationError(f"Image exceeds the {_MAX_IMAGE_BYTES} byte limit")
+                raise ValidationError(f"File exceeds the {_MAX_IMAGE_BYTES} byte limit")
 
         await self.check_budget(municipio_id, db)
         essay_prompt = await self.get_essay_prompt(essay_prompt_uuid, db)
@@ -173,7 +178,7 @@ class AesService:
                 original_ref="",
                 raw_text=None,
             )
-            extension = _ALLOWED_IMAGE_CONTENT_TYPES[content_type]
+            extension = _ALLOWED_CONTENT_TYPES[content_type]
             submission.original_ref = await object_storage.put(
                 key=f"submissions/{submission.uuid}/original.{extension}",
                 content=content,

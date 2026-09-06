@@ -32,6 +32,8 @@ module "platform" {
   aws_role_arn          = module.oidc_trust.role_arn
   aws_region            = var.aws_region
   ocr_provider          = var.ocr_provider
+  bedrock_model_id      = var.bedrock_model_id
+  openrouter_model      = var.openrouter_model
   kubeconfig_path       = module.kind_cluster.kubeconfig_path
   localstack_auth_token = var.localstack_auth_token
   openrouter_api_key    = var.openrouter_api_key

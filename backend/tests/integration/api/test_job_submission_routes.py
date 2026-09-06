@@ -155,7 +155,7 @@ async def test_submit_image_batch_rejects_unsupported_content_type(auth_client, 
         response = await auth_client.post(
             "/api/v1/aes/jobs/images",
             data={"essay_prompt_uuid": essay_prompt_uuid, "provider": "mock", "model": "mock-v1"},
-            files=[("images", ("essay.pdf", b"not-an-image", "application/pdf"))],
+            files=[("images", ("essay.gif", b"not-an-image", "image/gif"))],
         )
     finally:
         app.dependency_overrides.pop(get_object_storage, None)

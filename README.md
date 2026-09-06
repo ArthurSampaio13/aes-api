@@ -128,7 +128,7 @@ GET    /api/v1/aes/rubrics/{id}
 POST   /api/v1/aes/essay-prompts
 GET    /api/v1/aes/essay-prompts/{uuid}
 POST   /api/v1/aes/jobs               # lote de textos
-POST   /api/v1/aes/jobs/images        # lote de imagens (multipart)
+POST   /api/v1/aes/jobs/images        # lote de imagens ou PDFs de 1 pagina (multipart)
 GET    /api/v1/aes/jobs/{job_id}
 GET    /api/v1/aes/jobs/{job_id}/results
 GET    /api/v1/aes/models             # provedores disponíveis

@@ -80,6 +80,30 @@ async def test_submit_image_batch_creates_one_submission_and_job_per_image(db_se
 
 
 @pytest.mark.asyncio
+async def test_submit_image_batch_accepts_single_page_pdf(db_session, test_user):
+    """Redacao escaneada costuma sair em PDF de uma folha; o Textract sincrono le esse formato."""
+    essay_prompt_uuid = await _seed_essay_prompt(db_session, test_user, "Pdf Batch Test")
+    storage = ObjectStorage(bucket="test-bucket", client_factory=lambda: _FakeS3Client())
+
+    service = AesService()
+    batch_id, job_ids = await service.submit_image_batch(
+        essay_prompt_uuid=essay_prompt_uuid,
+        images=[(b"%PDF-1.4 bytes", "application/pdf")],
+        provider="mock",
+        model="mock-v1",
+        user_id=test_user["id"],
+        municipio_id=test_user["municipio_id"],
+        db=db_session,
+        object_storage=storage,
+    )
+
+    assert len(job_ids) == 1
+    submission = (await db_session.execute(select(Submission).where(Submission.batch_id == batch_id))).scalars().one()
+    assert submission.input_type == "image"
+    assert submission.original_ref.endswith(".pdf")
+
+
+@pytest.mark.asyncio
 async def test_submit_image_batch_rejects_empty_image_list(db_session, test_user):
     essay_prompt_uuid = await _seed_essay_prompt(db_session, test_user, "Empty Batch Test")
     storage = ObjectStorage(bucket="test-bucket", client_factory=lambda: _FakeS3Client())
@@ -110,7 +134,7 @@ async def test_submit_image_batch_rejects_unsupported_content_type(db_session, t
     with pytest.raises(ValidationError):
         await service.submit_image_batch(
             essay_prompt_uuid=essay_prompt_uuid,
-            images=[(b"not-an-image", "application/pdf")],
+            images=[(b"not-an-image", "image/gif")],
             provider="mock",
             model="mock-v1",
             user_id=test_user["id"],

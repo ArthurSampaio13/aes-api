@@ -85,3 +85,15 @@ variable "ocr_provider" {
   type        = string
   default     = "textract"
 }
+
+variable "bedrock_model_id" {
+  description = "Inference profile, not a bare model id: the Claude models on this account are INFERENCE_PROFILE only"
+  type        = string
+  default     = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+}
+
+variable "openrouter_model" {
+  description = "OpenRouter model id; the code default was removed upstream"
+  type        = string
+  default     = "nvidia/nemotron-3.5-lightning:free"
+}

@@ -385,6 +385,20 @@ kubectl -n aes exec deploy/aes-api-api -- \
 
 It should print an `assumed-role/aes-api-textract/...` ARN.
 
+### Accepted formats
+
+`POST /api/v1/aes/jobs/images` takes JPEG, PNG and **single-page PDF**, up to
+10 MB each and 50 per batch, mixed freely in one request — a scanned essay
+usually arrives as a one-page PDF.
+
+Textract's synchronous `DetectDocumentText` reads a one-page PDF but rejects a
+multi-page one with `UnsupportedDocumentException`. The API does not count pages
+before accepting the file — that would mean carrying a PDF parser just for the
+check — so a multi-page upload is accepted and the job fails, with that error
+recorded in `correction_attempts.error_message`. Supporting multi-page essays
+means moving to Textract's asynchronous API, which reads from a real S3 bucket
+rather than from bytes.
+
 ### Switching OCR off
 
 Set `ocr_provider = "mock"` in `infra/terraform.tfvars` and re-run `make infra`.
