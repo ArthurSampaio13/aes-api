@@ -10,7 +10,6 @@ from fastapi import APIRouter, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
-from fastapi.openapi.utils import get_openapi
 
 from ..modules.common.utils.error_handler import register_exception_handlers
 from .auth.session.dependencies import get_current_superuser
@@ -76,6 +75,26 @@ def lifespan_factory(
                 await close_rate_limiter()
 
     return lifespan
+
+
+def _mark_binary_formats(node: Any) -> None:
+    """Devolve `format: binary` aos campos de upload do schema.
+
+    O FastAPI emite OpenAPI 3.1, onde um UploadFile vira `contentMediaType:
+    application/octet-stream` e nenhum `format`. O Swagger UI decide desenhar o
+    seletor de arquivo olhando justamente o `format`, entao sem ele a rota de
+    upload aparece como caixa de texto e fica impossivel de usar pela interface.
+    JSON Schema trata format desconhecido como anotacao, entao o documento segue
+    valido para quem consome 3.1.
+    """
+    if isinstance(node, dict):
+        if node.get("contentMediaType") == "application/octet-stream":
+            node.setdefault("format", "binary")
+        for value in node.values():
+            _mark_binary_formats(value)
+    elif isinstance(node, list):
+        for item in node:
+            _mark_binary_formats(item)
 
 
 def create_application(
@@ -325,13 +344,17 @@ def create_application(
 
         @docs_router.get("/openapi.json", include_in_schema=False)
         async def openapi() -> dict[str, Any]:
-            return get_openapi(
-                title=metadata.get("title", "API"),
-                version=metadata.get("version", "0.1.0"),
-                description=metadata.get("description", ""),
-                routes=application.routes,
-            )
+            return application.openapi()
 
         application.include_router(docs_router)
+
+    _fastapi_openapi = application.openapi
+
+    def _openapi_with_binary_formats() -> dict[str, Any]:
+        schema = _fastapi_openapi()
+        _mark_binary_formats(schema)
+        return schema
+
+    application.openapi = _openapi_with_binary_formats  # type: ignore[method-assign]
 
     return application
