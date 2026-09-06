@@ -153,6 +153,47 @@ módulo é `modules/aes/...`, não `src/modules/aes/...`.
 
 ______________________________________________________________________
 
+## O Textract não lê manuscrito em português
+
+**Estado:** contornado por `AES_OCR_PROVIDER=bedrock_vision`, à espera da
+verificação da conta AWS.
+
+Medido com 28 redações reais de uma turma de 9º ano: a confiança média do
+Textract ficou em **65,1%**, com 97 de 99 palavras classificadas como
+`HANDWRITING`, e saídas como `Sigumdo D ridogão puizo par thair Favoro`. O
+cabeçalho **impresso** das mesmas folhas — nome da escola, código da BNCC,
+nome do aluno — saiu perfeito.
+
+A causa está na documentação da AWS, não na qualidade do material: o Textract
+lê texto impresso em seis idiomas, português incluído, mas *"Handwriting,
+Invoices and Receipts, Identity documents and Queries processing are in English
+only"*. Manuscrito é só inglês. Os erros são anglófonos — `porque` vira
+`Pargue`, `sou` vira `san` —, porque o modelo tenta encaixar cursiva portuguesa
+num alfabeto que não é o do corpus.
+
+Não há ajuste que resolva. Verificado: `AnalyzeDocument` com `LAYOUT` devolve
+texto byte a byte idêntico ao `DetectDocumentText`, então não existe engine
+separada para manuscrito. Melhorar resolução ajuda no geral (a AWS recomenda ao
+menos 150 DPI), mas não muda o idioma do modelo.
+
+### Contorno
+
+`BedrockVisionProvider` manda a imagem ou o PDF a um modelo multimodal via
+Converse, que não tem essa restrição de idioma. Selecionado por
+`ocr_provider = "bedrock_vision"` no OpenTofu; o modelo sai de
+`vision_model_id`, hoje `us.xai.grok-4.6`.
+
+A transcrição continua sendo gravada em `submissions.raw_text` em vez de a
+imagem ir direto ao corretor. Isso é deliberado: a seção 3.7 do TCC exige que o
+professor consiga ver **o texto que foi avaliado**, e passar a imagem direto ao
+modelo de correção deixaria a nota sem lastro auditável.
+
+O prompt de transcrição proíbe explicitamente corrigir ortografia e
+concordância. Um modelo que "arruma" o texto do aluno faria o critério
+`adequacao_ling` avaliar a escrita do modelo, não a do aluno.
+
+______________________________________________________________________
+
 ## Itens menores, ainda abertos
 
 - `TASKIQ_ENABLED` existe em `settings.py` e não é lido em lugar nenhum. Config

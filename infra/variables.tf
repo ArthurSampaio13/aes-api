@@ -97,3 +97,9 @@ variable "openrouter_model" {
   type        = string
   default     = "nvidia/nemotron-3.5-lightning:free"
 }
+
+variable "vision_model_id" {
+  description = "Multimodal inference profile used when ocr_provider is bedrock_vision"
+  type        = string
+  default     = "us.xai.grok-4.6"
+}

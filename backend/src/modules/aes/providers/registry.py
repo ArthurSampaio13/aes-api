@@ -5,6 +5,7 @@ from collections.abc import Callable
 from ....infrastructure.config.settings import get_settings
 from .base import CorrectionProvider
 from .bedrock import BedrockProvider
+from .bedrock_vision import BedrockVisionProvider
 from .mock import MockProvider
 from .mock_ocr import MockOCRProvider
 from .ocr_base import OCRProvider
@@ -37,6 +38,7 @@ PROVIDER_FACTORIES.update({name: _gateway_factory(name, base_url) for name, base
 OCR_PROVIDER_FACTORIES: dict[str, Callable[[], OCRProvider]] = {
     "mock": lambda: MockOCRProvider(),
     "textract": lambda: TextractProvider(),
+    "bedrock_vision": lambda: BedrockVisionProvider(model_id=_settings.AES_VISION_MODEL_ID),
 }
 
 

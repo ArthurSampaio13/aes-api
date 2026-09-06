@@ -115,3 +115,8 @@ variable "openrouter_model" {
   description = "OpenRouter model id; free tiers come and go, so re-check before relying on one"
   type        = string
 }
+
+variable "vision_model_id" {
+  description = "Multimodal inference profile used to transcribe handwriting"
+  type        = string
+}

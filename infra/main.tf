@@ -34,6 +34,7 @@ module "platform" {
   ocr_provider          = var.ocr_provider
   bedrock_model_id      = var.bedrock_model_id
   openrouter_model      = var.openrouter_model
+  vision_model_id       = var.vision_model_id
   kubeconfig_path       = module.kind_cluster.kubeconfig_path
   localstack_auth_token = var.localstack_auth_token
   openrouter_api_key    = var.openrouter_api_key

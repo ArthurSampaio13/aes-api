@@ -49,6 +49,10 @@ resource "kubernetes_secret" "app_env" {
     # default do codigo aponta para um modelo que o OpenRouter ja removeu.
     OPENROUTER_MODEL = var.openrouter_model
 
+    # Usado quando ocr_provider = "bedrock_vision": o Textract so le manuscrito
+    # em ingles, entao redacao em portugues precisa de um modelo multimodal.
+    AES_VISION_MODEL_ID = var.vision_model_id
+
     SESSION_SECURE_COOKIES                 = "false"
     PRODUCTION_SECURITY_VALIDATION_ENABLED = "false"
 
