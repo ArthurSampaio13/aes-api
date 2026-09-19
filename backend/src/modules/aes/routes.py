@@ -8,14 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...infrastructure.auth.api_key_dependencies import get_current_principal
 from ...infrastructure.auth.http_exceptions import HTTPException
 from ...infrastructure.cache import cache
-from ...infrastructure.config.settings import get_settings
 from ...modules.api_keys.enums import KeyPermissionAction, KeyPermissionResource
 from ..common.utils.error_handler import handle_exception
+from .catalog import ModelInfo, fetch_catalog
 from .dependencies import AesServiceDep, get_aes_tenant_session
-from .providers.registry import PROVIDER_FACTORIES
 from .schemas.essay_prompt import EssayPromptCreate, EssayPromptRead
 from .schemas.rubric import RubricCreate, RubricRead
-from .schemas.submission import BatchSubmitRequest, BatchSubmitResponse, JobResultRead, JobStatusRead, ModelInfo
+from .schemas.submission import BatchSubmitRequest, BatchSubmitResponse, JobResultRead, JobStatusRead
 from .storage import ObjectStorage, get_object_storage
 
 router = APIRouter(tags=["AES"])
@@ -80,19 +79,20 @@ async def get_rubric(
 
 
 @router.get("/models", response_model=list[ModelInfo])
+@cache(key_prefix="aes_model_catalog", expiration=3600)
 async def list_models(
+    request: Request,
     current_user: Annotated[dict[str, Any], Depends(_rubric_read)],
+    input_modality: str | None = None,
 ) -> list[dict[str, Any]]:
-    settings = get_settings()
-    fixed = {
-        "mock": ("mock", True),
-        "openrouter": (settings.OPENROUTER_MODEL, bool(settings.OPENROUTER_API_KEY)),
-    }
-    return [
-        {"provider": name, "model": model, "available": available}
-        for name, (model, available) in fixed.items()
-        if name in PROVIDER_FACTORIES
-    ]
+    try:
+        catalogo = await fetch_catalog()
+    except Exception:
+        return []
+    entradas = list(catalogo.values())
+    if input_modality:
+        entradas = [m for m in entradas if input_modality in m.input_modalities]
+    return [m.model_dump() for m in entradas]
 
 
 @router.post("/essay-prompts", status_code=201, response_model=EssayPromptRead)
