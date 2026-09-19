@@ -250,8 +250,9 @@ async def test_submit_batch_rejects_a_model_absent_from_the_catalog(auth_client,
 
 
 @pytest.mark.asyncio
-async def test_submit_batch_rejects_a_provider_outside_the_registry(auth_client, db_session, test_user):
+async def test_submit_batch_rejects_a_provider_outside_the_registry(auth_client, db_session, test_user, monkeypatch):
     essay_prompt_uuid = await _create_essay_prompt(auth_client, db_session, test_user)
+    _prime_the_catalog(monkeypatch)
 
     response = await auth_client.post(
         "/api/v1/aes/jobs",
@@ -259,7 +260,7 @@ async def test_submit_batch_rejects_a_provider_outside_the_registry(auth_client,
             "essay_prompt_uuid": essay_prompt_uuid,
             "texts": ["Redação de teste."],
             "provider": "bedrock",
-            "model": "anthropic.claude-3-haiku-20240307-v1:0",
+            "model": "deepseek/deepseek-v4.1-flash",
         },
     )
 
@@ -267,8 +268,9 @@ async def test_submit_batch_rejects_a_provider_outside_the_registry(auth_client,
 
 
 @pytest.mark.asyncio
-async def test_submit_image_batch_rejects_a_provider_outside_the_registry(auth_client, db_session, test_user):
+async def test_submit_image_batch_rejects_a_provider_outside_the_registry(auth_client, db_session, test_user, monkeypatch):
     essay_prompt_uuid = await _create_essay_prompt(auth_client, db_session, test_user)
+    _prime_the_catalog(monkeypatch)
     fake_client = _FakeImageS3Client()
     app.dependency_overrides[get_object_storage] = lambda: ObjectStorage(
         bucket="test-bucket", client_factory=lambda: fake_client
@@ -277,7 +279,7 @@ async def test_submit_image_batch_rejects_a_provider_outside_the_registry(auth_c
     try:
         response = await auth_client.post(
             "/api/v1/aes/jobs/images",
-            data={"essay_prompt_uuid": essay_prompt_uuid, "provider": "bedrock", "model": "claude-3-haiku"},
+            data={"essay_prompt_uuid": essay_prompt_uuid, "provider": "bedrock", "model": "deepseek/deepseek-v4.1-flash"},
             files=[("images", ("essay.jpg", b"fake-jpeg-bytes", "image/jpeg"))],
         )
     finally:
