@@ -39,6 +39,7 @@ class CorrectionAttempt(Base, UUIDMixin, TimestampMixin):
     tokens_in: Mapped[int | None] = mapped_column(Integer, default=None)
     tokens_out: Mapped[int | None] = mapped_column(Integer, default=None)
     latency_ms: Mapped[int | None] = mapped_column(Integer, default=None)
+    raw_request_ref: Mapped[str | None] = mapped_column(String(500), default=None)
     raw_response_ref: Mapped[str | None] = mapped_column(String(500), default=None)
     validation_errors: Mapped[dict[str, Any] | None] = mapped_column(JSONB, default=None)
     error_message: Mapped[str | None] = mapped_column(Text, default=None)

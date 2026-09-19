@@ -79,23 +79,23 @@ async def test_worker_marks_job_failed_when_provider_raises(correction_job_fixtu
 
 
 @pytest.mark.asyncio
-async def test_worker_persists_raw_response_to_object_storage(correction_job_fixture):
+async def test_worker_persists_both_sides_of_the_exchange(correction_job_fixture):
     municipio, job = await correction_job_fixture.build()
     fake_client = FakeS3Client()
     storage = ObjectStorage(bucket="test-bucket", client_factory=lambda: fake_client)
 
     await correction_job_fixture.process(municipio, job, object_storage=storage)
 
-    assert len(fake_client.put_calls) == 1
-    assert fake_client.put_calls[0]["Bucket"] == "test-bucket"
-    assert "raw_response.txt" in fake_client.put_calls[0]["Key"]
+    stored = {call["Key"].rsplit("/", 1)[-1] for call in fake_client.put_calls}
+    assert stored == {"request.json", "response.json"}, "os dois lados da conversa são o registro auditável"
+    assert all(call["Bucket"] == "test-bucket" for call in fake_client.put_calls)
 
     db_session = correction_job_fixture.db_session
     attempts_query = select(CorrectionAttempt).where(CorrectionAttempt.correction_job_id == job.uuid)
     attempts = (await db_session.execute(attempts_query)).scalars().all()
     assert len(attempts) == 1
-    assert attempts[0].raw_response_ref is not None
-    assert "raw_response.txt" in attempts[0].raw_response_ref
+    assert attempts[0].raw_request_ref is not None and attempts[0].raw_request_ref.endswith("request.json")
+    assert attempts[0].raw_response_ref is not None and attempts[0].raw_response_ref.endswith("response.json")
 
 
 @pytest.mark.asyncio

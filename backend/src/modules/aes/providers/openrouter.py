@@ -16,6 +16,7 @@ from .base import CorrectionCandidate, ProviderResponse
 class OpenRouterProvider:
     def __init__(self, api_key: str, model: str) -> None:
         # pydantic-ai rejects an empty api_key at construction; registry builds providers eagerly even when unconfigured
+        self.model_id = model
         pydantic_model = OpenRouterModel(model, provider=OpenRouterModelProvider(api_key=api_key or "unset"))
         self.agent = Agent(pydantic_model, output_type=CorrectionCandidate, output_retries=0)
 
@@ -25,4 +26,5 @@ class OpenRouterProvider:
             essay_text=essay_text,
             prompt=prompt,
             model_settings={"temperature": params.get("temperature", 0.0)},
+            model_id=self.model_id,
         )

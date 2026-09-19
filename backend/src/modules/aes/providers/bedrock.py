@@ -11,6 +11,7 @@ from .base import CorrectionCandidate, ProviderResponse
 
 class BedrockProvider:
     def __init__(self, model_id: str) -> None:
+        self.model_id = model_id
         pydantic_model = BedrockConverseModel(model_id)
         self.agent = Agent(pydantic_model, output_type=CorrectionCandidate, output_retries=0)
 
@@ -23,4 +24,5 @@ class BedrockProvider:
                 "temperature": params.get("temperature", 0.0),
                 "bedrock_cache_instructions": True,
             },
+            model_id=self.model_id,
         )

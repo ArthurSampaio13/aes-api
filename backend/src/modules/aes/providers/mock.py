@@ -1,6 +1,7 @@
 """Deterministic, free, no-network correction provider — the default everywhere except explicit real-provider
 config."""
 
+import json
 from typing import Any
 
 from pydantic import ValidationError
@@ -26,6 +27,12 @@ class MockProvider:
 
         return ProviderResponse(
             raw_text=str(candidate_dict),
+            raw_request=json.dumps(
+                {"model": "mock", "model_settings": params, "instructions": prompt, "user_content": essay_text},
+                ensure_ascii=False,
+                sort_keys=True,
+            ),
+            raw_response=json.dumps(candidate_dict, ensure_ascii=False, sort_keys=True),
             structured=structured,
             tokens_in=len(essay_text.split()) + len(prompt.split()),
             tokens_out=40,

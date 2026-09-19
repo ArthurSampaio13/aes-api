@@ -82,13 +82,19 @@ async def process_correction_job(
                 "success" if response.structured is not None else ("retry" if attempt_number < job.max_attempts else "failed")
             )
 
-            raw_response_ref: str | None = None
-            if response.raw_text:
-                raw_response_ref = await object_storage.put(
-                    key=f"correction-attempts/{job.uuid}/attempt-{attempt_number}/raw_response.txt",
-                    content=response.raw_text.encode("utf-8"),
-                    content_type="text/plain",
+            prefix = f"correction-attempts/{job.uuid}/attempt-{attempt_number}"
+
+            async def _store(name: str, payload: str) -> str | None:
+                if not payload:
+                    return None
+                return await object_storage.put(
+                    key=f"{prefix}/{name}",
+                    content=payload.encode("utf-8"),
+                    content_type="application/json",
                 )
+
+            raw_request_ref = await _store("request.json", response.raw_request)
+            raw_response_ref = await _store("response.json", response.raw_response)
 
             attempt = CorrectionAttempt(
                 municipio_id=job.municipio_id,
@@ -103,6 +109,7 @@ async def process_correction_job(
                 tokens_in=response.tokens_in,
                 tokens_out=response.tokens_out,
                 latency_ms=latency_ms,
+                raw_request_ref=raw_request_ref,
                 raw_response_ref=raw_response_ref,
                 code_version=get_settings().CODE_VERSION,
                 validation_errors={"error": response.validation_error} if response.validation_error else None,
@@ -130,7 +137,7 @@ async def process_correction_job(
                     municipio_id=job.municipio_id,
                     correction_job_id=job.uuid,
                     correction_attempt_id=attempt.uuid,
-                    scores={k: v.model_dump() for k, v in response.structured.scores.items()},
+                    scores=response.structured.scores.model_dump(),
                     feedback=response.structured.feedback,
                     sugestao_acionavel=response.structured.sugestao_acionavel,
                 )
