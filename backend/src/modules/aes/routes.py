@@ -3,6 +3,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastcrud import PaginatedListResponse, compute_offset, paginated_response
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.auth.api_key_dependencies import get_current_principal
@@ -86,6 +87,7 @@ async def list_models(
     try:
         catalogo = await fetch_catalog()
     except Exception:
+        logger.exception("failed to fetch the openrouter model catalog")
         return []
     entradas = list(catalogo.values())
     if input_modality:
