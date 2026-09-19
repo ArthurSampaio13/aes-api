@@ -9,7 +9,9 @@ set -euo pipefail
 API="${API:-http://localhost:8000}"
 NS="${NS:-aes}"
 PROVIDER="${PROVIDER:-mock}"
-MODEL="${MODEL:-mock-v1}"
+# Vazio deixa a API cair no modelo configurado do provider; um "mock-v1"
+# fixo iria parar no OpenRouter e falhar agora que o campo e honrado.
+MODEL="${MODEL:-}"
 
 die() { printf '\033[0;31merro:\033[0m %s\n' "$1" >&2; exit 1; }
 
@@ -48,7 +50,8 @@ for pattern in "$@"; do
   done < <(expandir "$pattern")
 done
 
-args=(-F "essay_prompt_uuid=$PROMPT_UUID" -F "provider=$PROVIDER" -F "model=$MODEL")
+args=(-F "essay_prompt_uuid=$PROMPT_UUID" -F "provider=$PROVIDER")
+[ -z "$MODEL" ] || args+=(-F "model=$MODEL")
 for f in "${arquivos[@]}"; do
   [ -f "$f" ] || die "arquivo nao encontrado: $f"
   case "${f,,}" in
@@ -60,7 +63,7 @@ for f in "${arquivos[@]}"; do
   args+=(-F "images=@${f};type=${t}")
 done
 
-echo "enviando ${#arquivos[@]} arquivo(s) com provider=$PROVIDER..."
+echo "enviando ${#arquivos[@]} arquivo(s) com provider=$PROVIDER modelo=${MODEL:-<default>}..."
 RESPONSE="$(curl -sf -H "X-API-Key: $API_KEY" -X POST "$API/api/v1/aes/jobs/images" "${args[@]}")" ||
   die "a API recusou o lote"
 
