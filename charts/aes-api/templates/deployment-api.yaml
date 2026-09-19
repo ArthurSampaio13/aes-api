@@ -25,6 +25,8 @@ spec:
           env:
             - name: CODE_VERSION
               value: {{ .Values.codeVersion | quote }}
+            - name: PYDANTIC_AI_NO_BANNER
+              value: "1"
           envFrom:
             - secretRef:
                 name: {{ .Values.envSecretName }}
