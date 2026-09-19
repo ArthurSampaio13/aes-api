@@ -30,6 +30,14 @@ def test_normalizar_remove_acento_caixa_e_espaco_repetido():
     assert normalizar("  A   CRIANÇA  brincou ") == "a crianca brincou"
 
 
+def test_normalizar_troca_pontuacao_por_espaco():
+    assert normalizar("caminhou, ate a escola") == "caminhou ate a escola"
+
+
+def test_normalizar_nao_funde_palavras_separadas_so_por_pontuacao():
+    assert normalizar("fim.Inicio") == "fim inicio"
+
+
 def test_extrair_citacoes_pega_aspas_retas_e_tipograficas():
     texto = 'O aluno escreve "era uma vez" e tambem “foi muito bom”.'
     assert extrair_citacoes(texto) == ["era uma vez", "foi muito bom"]
@@ -147,6 +155,20 @@ def test_citacao_presente_na_redacao_passa_ignorando_acento_e_caixa():
 def test_citacao_no_feedback_tambem_e_verificada():
     deps = CorrectionDeps(essay_text="Texto simples do aluno.", events=[])
     candidato = _candidato(["ok"] * 5, feedback='Voce escreveu "jamais existiu isso" no final.')
+
+    assert guard_citacoes(_ctx(deps), candidato).action == "retry"
+
+
+def test_citacao_que_so_difere_por_virgula_inserida_na_redacao_passa():
+    deps = CorrectionDeps(essay_text="O menino caminhou, ate a escola.", events=[])
+    candidato = _candidato(['O aluno escreve "caminhou ate a escola" com clareza.'] + ["ok"] * 4)
+
+    assert guard_citacoes(_ctx(deps), candidato).action == "allow"
+
+
+def test_citacao_genuinamente_ausente_continua_falhando_apos_ignorar_pontuacao():
+    deps = CorrectionDeps(essay_text="O menino caminhou, ate a escola.", events=[])
+    candidato = _candidato(['O aluno escreve "voou sobre a montanha" sem coesao.'] + ["ok"] * 4)
 
     assert guard_citacoes(_ctx(deps), candidato).action == "retry"
 

@@ -122,3 +122,50 @@ async def test_citacao_ancorada_na_redacao_passa_de_primeira():
 
     assert len(chamadas) == 1
     assert resposta.structured is not None
+
+
+@pytest.mark.asyncio
+async def test_justificativas_repetidas_provocam_nova_chamada_ao_modelo():
+    chamadas: list = []
+    provider = LLMCorrectionProvider(model_id="openrouter:modelo/teste")
+
+    def responder(messages: list, info: AgentInfo) -> ModelResponse:
+        chamadas.append(messages)
+        primeira = len(chamadas) == 1
+        justificativa = 'Usa "caminhou ate a escola" bem.'
+        if primeira:
+            scores = {c: {"nota": 7, "justificativa": justificativa} for c in FIXED_CRITERIA}
+        else:
+            scores = {c: {"nota": 7, "justificativa": f"{justificativa} {c}"} for c in FIXED_CRITERIA}
+        output = {"scores": scores, "feedback": "ok", "sugestao_acionavel": "revise"}
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, output)])
+
+    with provider.agent.override(model=FunctionModel(responder)):
+        resposta = await provider.correct(
+            essay_text="O menino caminhou ate a escola.", prompt="RUBRICA {essay_text}", params={}
+        )
+
+    assert len(chamadas) == 2
+    assert resposta.structured is not None
+    assert resposta.model_retries == 1
+    assert any(e["guard"] == "justificativas" and e["veredito"] == "retry" for e in resposta.guardrail_events)
+
+
+@pytest.mark.asyncio
+async def test_justificativas_distintas_passam_de_primeira():
+    chamadas: list = []
+    provider = LLMCorrectionProvider(model_id="openrouter:modelo/teste")
+
+    def responder(messages: list, info: AgentInfo) -> ModelResponse:
+        chamadas.append(messages)
+        scores = {c: {"nota": 7, "justificativa": f'Usa "caminhou ate a escola" bem em {c}.'} for c in FIXED_CRITERIA}
+        output = {"scores": scores, "feedback": "ok", "sugestao_acionavel": "revise"}
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, output)])
+
+    with provider.agent.override(model=FunctionModel(responder)):
+        resposta = await provider.correct(
+            essay_text="O menino caminhou ate a escola.", prompt="RUBRICA {essay_text}", params={}
+        )
+
+    assert len(chamadas) == 1
+    assert resposta.structured is not None

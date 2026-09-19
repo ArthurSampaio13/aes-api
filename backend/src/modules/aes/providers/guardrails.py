@@ -40,6 +40,7 @@ class CorrectionDeps:
 
 _PALAVRA = re.compile(r"\w+", re.UNICODE)
 _CITACAO = re.compile(r"[\"“„«]([^\"“”«»]{4,})[\"”»]")
+_PONTUACAO = re.compile(r"[^\w\s]", re.UNICODE)
 
 
 def contar_palavras(texto: str) -> int:
@@ -48,7 +49,8 @@ def contar_palavras(texto: str) -> int:
 
 def normalizar(texto: str) -> str:
     sem_acento = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode()
-    return re.sub(r"\s+", " ", sem_acento).casefold().strip()
+    sem_pontuacao = _PONTUACAO.sub(" ", sem_acento)
+    return re.sub(r"\s+", " ", sem_pontuacao).casefold().strip()
 
 
 def extrair_citacoes(texto: str) -> list[str]:
