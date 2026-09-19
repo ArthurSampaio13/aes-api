@@ -48,9 +48,9 @@ def contar_palavras(texto: str) -> int:
 
 
 def normalizar(texto: str) -> str:
-    sem_acento = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode()
-    sem_pontuacao = _PONTUACAO.sub(" ", sem_acento)
-    return re.sub(r"\s+", " ", sem_pontuacao).casefold().strip()
+    sem_pontuacao = _PONTUACAO.sub(" ", texto)
+    sem_acento = unicodedata.normalize("NFKD", sem_pontuacao).encode("ascii", "ignore").decode()
+    return re.sub(r"\s+", " ", sem_acento).casefold().strip()
 
 
 def extrair_citacoes(texto: str) -> list[str]:

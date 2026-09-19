@@ -38,6 +38,13 @@ def test_normalizar_nao_funde_palavras_separadas_so_por_pontuacao():
     assert normalizar("fim.Inicio") == "fim inicio"
 
 
+def test_normalizar_nao_funde_palavras_separadas_por_pontuacao_tipografica():
+    assert normalizar("fim—inicio") == "fim inicio"
+    assert normalizar("fim–inicio") == "fim inicio"
+    assert normalizar("fim‘inicio’") == "fim inicio"
+    assert normalizar("fim…inicio") == "fim inicio"
+
+
 def test_extrair_citacoes_pega_aspas_retas_e_tipograficas():
     texto = 'O aluno escreve "era uma vez" e tambem “foi muito bom”.'
     assert extrair_citacoes(texto) == ["era uma vez", "foi muito bom"]
