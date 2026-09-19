@@ -10,10 +10,11 @@ from ..common.exceptions import BudgetExceededError, ResourceNotFoundError, Vali
 from ..municipio.crud import crud_municipios
 from .catalog import fetch_catalog
 from .crud import crud_correction_jobs, crud_correction_results, crud_essay_prompts, crud_prompt_templates, crud_rubrics
-from .models.correction import CorrectionAttempt, CorrectionJob
+from .models.correction import CorrectionAttempt, CorrectionJob, CorrectionResult
 from .models.submission import Batch, Submission
 from .providers.registry import PROVIDER_FACTORIES, resolve_model
 from .schemas.essay_prompt import EssayPromptCreate, EssayPromptCreateInternal, EssayPromptRead
+from .schemas.manifest import AttemptManifest, BatchManifest, JobManifest, ResultManifest
 from .schemas.rubric import RubricCreate, RubricCreateInternal, RubricRead
 from .schemas.submission import BatchSubmitRequest, JobResultRead
 from .storage import ObjectStorage
@@ -243,3 +244,51 @@ class AesService:
         if not result:
             raise ResourceNotFoundError(f"Result for job {job_id} not found (job may not be done yet)")
         return result
+
+    async def get_batch_manifest(self, batch_id: str, db: AsyncSession) -> dict[str, Any]:
+        """Todas as condições que produziram cada correção do batch, para auditoria e análise."""
+        batch = (await db.execute(select(Batch).where(Batch.uuid == batch_id))).scalar_one_or_none()
+        if not batch:
+            raise ResourceNotFoundError(f"Batch {batch_id} not found")
+
+        submissions = (await db.execute(select(Submission).where(Submission.batch_id == batch.uuid))).scalars().all()
+        por_submission = {s.uuid: s for s in submissions}
+        jobs = (
+            (await db.execute(select(CorrectionJob).where(CorrectionJob.submission_id.in_(por_submission.keys()))))
+            .scalars()
+            .all()
+        )
+
+        linhas = []
+        for job in jobs:
+            attempts = (
+                (
+                    await db.execute(
+                        select(CorrectionAttempt)
+                        .where(CorrectionAttempt.correction_job_id == job.uuid)
+                        .order_by(CorrectionAttempt.attempt_number)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            result = (
+                await db.execute(select(CorrectionResult).where(CorrectionResult.correction_job_id == job.uuid))
+            ).scalar_one_or_none()
+            submission = por_submission[job.submission_id]
+            linhas.append(
+                JobManifest(
+                    job_id=job.uuid,
+                    submission_id=submission.uuid,
+                    status=job.status,
+                    input_type=submission.input_type,
+                    transcription=submission.transcription_meta,
+                    attempts=[AttemptManifest.model_validate(a, from_attributes=True) for a in attempts],
+                    result=ResultManifest.model_validate(result, from_attributes=True) if result else None,
+                )
+            )
+
+        manifesto = BatchManifest(
+            batch_id=batch.uuid, essay_prompt_id=batch.essay_prompt_id, created_at=batch.created_at, jobs=linhas
+        )
+        return manifesto.model_dump(mode="json")

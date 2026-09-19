@@ -14,6 +14,7 @@ from ..common.utils.error_handler import handle_exception
 from .catalog import ModelInfo, fetch_catalog
 from .dependencies import AesServiceDep, get_aes_tenant_session
 from .schemas.essay_prompt import EssayPromptCreate, EssayPromptRead
+from .schemas.manifest import BatchManifest
 from .schemas.rubric import RubricCreate, RubricRead
 from .schemas.submission import BatchSubmitRequest, BatchSubmitResponse, JobResultRead, JobStatusRead
 from .storage import ObjectStorage, get_object_storage
@@ -216,6 +217,19 @@ async def get_job_results(
 ) -> dict[str, Any]:
     try:
         return await aes_service.get_job_result(job_id, db)
+    except Exception as e:
+        http_exception = handle_exception(e)
+        if http_exception:
+            raise http_exception
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
+
+@router.get("/batches/{batch_id}/manifest", response_model=BatchManifest)
+async def get_batch_manifest(
+    batch_id: str, db: Annotated[AsyncSession, Depends(get_aes_tenant_session(_batch_read))], aes_service: AesServiceDep
+) -> dict[str, Any]:
+    try:
+        return await aes_service.get_batch_manifest(batch_id, db)
     except Exception as e:
         http_exception = handle_exception(e)
         if http_exception:
