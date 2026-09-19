@@ -263,6 +263,28 @@ prohibition is load-bearing rather than cosmetic: a model that tidies up the
 student's text would make the `adequacao_ling` criterion grade the model's
 writing instead of the student's, inflating the score with no trace of it.
 
+## 5c. Seeing the cluster in kubectx
+
+`make` pins `KUBECONFIG` to `~/.kube/kind-aes-local.yaml`, written by OpenTofu,
+and deliberately does not read the one from your shell. The assignment is `=`,
+not `?=`, so no target here can be redirected at whatever context happens to be
+selected — including a production EKS.
+
+The cost is that `kubectx` never sees the cluster, and it reads a single file,
+so listing both paths in `KUBECONFIG` fails with *multiple files in KUBECONFIG
+are currently not supported*.
+
+```bash
+make kubectx
+```
+
+That merges only the kind context into `~/.kube/config`, leaving every other
+context untouched, and it is safe precisely because the Makefile pins its own
+path. The context is called `kind-aes-local`.
+
+Re-run it after recreating the cluster: the API server certificate changes, and
+the merged context goes stale.
+
 ## 6. Observability
 
 ```bash

@@ -7,7 +7,7 @@ export KUBECONFIG = $(HOME)/.kube/kind-aes-local.yaml
 CLUSTER ?= aes-local
 MISE := mise exec --
 
-.PHONY: setup infra down status grafana creds smoke reissue-key
+.PHONY: setup infra kubectx down status grafana creds smoke reissue-key
 .NOTPARALLEL:
 
 setup:
@@ -17,6 +17,13 @@ setup:
 infra:
 	$(MISE) tofu -chdir=infra init -upgrade
 	$(MISE) tofu -chdir=infra apply -auto-approve
+
+# O kubectx so le um arquivo, e o tofu escreve o do kind separado do ~/.kube/config
+# justamente para nenhum alvo daqui alcancar um EKS. Este alvo funde so o contexto
+# do kind no arquivo padrao; --kubeconfig explicito ignora o KUBECONFIG fixado acima.
+# Refaca depois de recriar o cluster: o certificado muda e o contexto velho quebra.
+kubectx:
+	$(MISE) kind export kubeconfig --name $(CLUSTER) --kubeconfig $(HOME)/.kube/config
 
 down:
 	$(MISE) tofu -chdir=infra destroy -auto-approve
