@@ -382,6 +382,13 @@ class AESSettings(BaseSettings):
     AES_OCR_PROVIDER: str = config("AES_OCR_PROVIDER", default="mock")
     AES_VISION_MODEL: str = config("AES_VISION_MODEL", default="deepseek/deepseek-v4.1-flash")
     WORKER_METRICS_PORT: int = config("WORKER_METRICS_PORT", default=9464, cast=int)
+    AES_INFERENCE_SEED: int = config("AES_INFERENCE_SEED", cast=int, default=42)
+    AES_PROMPT_CACHE_TTL: str = config("AES_PROMPT_CACHE_TTL", default="5m")
+    AES_OPENROUTER_PROVIDER_ORDER: str = config("AES_OPENROUTER_PROVIDER_ORDER", default="")
+    AES_OCR_MIN_WORDS: int = config("AES_OCR_MIN_WORDS", cast=int, default=40)
+    AES_OCR_MAX_ILLEGIBLE_RATIO: float = config("AES_OCR_MAX_ILLEGIBLE_RATIO", cast=float, default=0.20)
+    AES_OCR_MAX_RETRIES: int = config("AES_OCR_MAX_RETRIES", cast=int, default=2)
+    AES_CORRECTION_MAX_RETRIES: int = config("AES_CORRECTION_MAX_RETRIES", cast=int, default=2)
 
 
 class Settings(

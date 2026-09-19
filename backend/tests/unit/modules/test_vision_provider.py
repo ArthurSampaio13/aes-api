@@ -84,4 +84,6 @@ async def test_transcription_is_deterministic_and_denies_provider_data_collectio
     with provider.agent.override(model=_capturing_model(capturado)):
         await provider.extract_text(image_bytes=PNG_BYTES)
 
-    assert capturado["settings"] == {"temperature": 0.0, "openrouter_provider": {"data_collection": "deny"}}
+    assert capturado["settings"]["temperature"] == 0.0
+    assert capturado["settings"]["openrouter_provider"]["data_collection"] == "deny"
+    assert capturado["settings"]["seed"] == 42

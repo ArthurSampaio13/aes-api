@@ -34,8 +34,23 @@ def resolve_agent_model(model_id: str) -> Model:
 
 
 def openrouter_model_settings(temperature: float) -> dict[str, Any]:
-    """A folha digitalizada traz nome do aluno; nenhum provider que retenha dado deve recebê-la."""
-    return {"temperature": temperature, "openrouter_provider": {"data_collection": "deny"}}
+    """A folha digitalizada traz nome do aluno; nenhum provider que retenha dado deve recebê-la.
+
+    O pin de provedor existe para reprodutibilidade: sem ele o OpenRouter pode
+    servir a mesma requisição de backends com quantizações diferentes.
+    """
+    settings = get_settings()
+    provider: dict[str, Any] = {"data_collection": "deny"}
+    ordem = [p.strip() for p in settings.AES_OPENROUTER_PROVIDER_ORDER.split(",") if p.strip()]
+    if ordem:
+        provider["order"] = ordem
+        provider["allow_fallbacks"] = False
+    return {
+        "temperature": temperature,
+        "seed": settings.AES_INFERENCE_SEED,
+        "openrouter_cache_instructions": settings.AES_PROMPT_CACHE_TTL,
+        "openrouter_provider": provider,
+    }
 
 
 def extract_raw_output_text(messages: Sequence[ModelMessage]) -> str:

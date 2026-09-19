@@ -1,8 +1,17 @@
 import json
 
+import pytest
 from pydantic_ai import ModelRequest, ModelResponse, TextPart, ToolCallPart, UserPromptPart
+from pydantic_ai.models import ModelRequestParameters
+from pydantic_ai.models.openrouter import OpenRouterModel, OpenRouterModelSettings
+from pydantic_ai.providers.openrouter import OpenRouterProvider
 
-from src.modules.aes.providers._pydantic_ai_support import extract_raw_output_text, split_prompt_for_caching
+from src.infrastructure.config.settings import get_settings
+from src.modules.aes.providers._pydantic_ai_support import (
+    extract_raw_output_text,
+    openrouter_model_settings,
+    split_prompt_for_caching,
+)
 
 
 def test_extract_raw_output_text_reads_tool_call_args():
@@ -42,3 +51,53 @@ def test_split_prompt_for_caching_handles_text_after_placeholder():
     instructions, user_content = split_prompt_for_caching("Antes {essay_text} depois", "texto")
     assert instructions == "Antes "
     assert user_content == "texto depois"
+
+
+def test_settings_carregam_seed_e_cache_de_instrucoes(monkeypatch):
+    get_settings.cache_clear()
+    monkeypatch.setenv("AES_INFERENCE_SEED", "42")
+    monkeypatch.setenv("AES_PROMPT_CACHE_TTL", "1h")
+    get_settings.cache_clear()
+
+    resultado = openrouter_model_settings(0.0)
+
+    assert resultado["seed"] == 42
+    assert resultado["openrouter_cache_instructions"] == "1h"
+    assert resultado["temperature"] == 0.0
+
+
+def test_sem_pin_configurado_o_provider_so_nega_coleta_de_dados(monkeypatch):
+    monkeypatch.setenv("AES_OPENROUTER_PROVIDER_ORDER", "")
+    get_settings.cache_clear()
+
+    resultado = openrouter_model_settings(0.0)
+
+    assert resultado["openrouter_provider"] == {"data_collection": "deny"}
+
+
+def test_pin_configurado_desliga_fallback_para_a_rodada_ser_reproduzivel(monkeypatch):
+    monkeypatch.setenv("AES_OPENROUTER_PROVIDER_ORDER", "anthropic, deepinfra")
+    get_settings.cache_clear()
+
+    resultado = openrouter_model_settings(0.0)
+
+    assert resultado["openrouter_provider"] == {
+        "data_collection": "deny",
+        "order": ["anthropic", "deepinfra"],
+        "allow_fallbacks": False,
+    }
+
+
+@pytest.mark.asyncio
+async def test_a_configuracao_de_cache_produz_cache_control_no_payload():
+    """Regressao de e335cda: na 1.38 essa configuracao nao existia e nao fazia nada."""
+    modelo = OpenRouterModel("anthropic/claude-sonnet-4.6", provider=OpenRouterProvider(api_key="x"))
+    mensagens = [ModelRequest(parts=[UserPromptPart(content="redacao")], instructions="RUBRICA " * 20)]
+
+    com_cache = await modelo._map_messages(
+        mensagens, ModelRequestParameters(), model_settings=OpenRouterModelSettings(openrouter_cache_instructions="1h")
+    )
+    sem_cache = await modelo._map_messages(mensagens, ModelRequestParameters(), model_settings=OpenRouterModelSettings())
+
+    assert "cache_control" in json.dumps(com_cache, default=str)
+    assert "cache_control" not in json.dumps(sem_cache, default=str)

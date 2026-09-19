@@ -82,6 +82,8 @@ async def test_prompt_prefix_reaches_instructions_and_cache_tokens_fold_into_tok
 
     assert captured["instructions"] == "Corrija:"
     assert captured["user_content"] == "texto do aluno"
-    assert captured["settings"] == {"temperature": 0.1, "openrouter_provider": {"data_collection": "deny"}}
+    assert captured["settings"]["temperature"] == 0.1
+    assert captured["settings"]["openrouter_provider"]["data_collection"] == "deny"
+    assert captured["settings"]["seed"] == 42
     assert response.tokens_in == 210
     assert response.tokens_out == 50
