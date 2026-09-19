@@ -78,7 +78,7 @@ def split_prompt_for_caching(prompt: str, essay_text: str) -> tuple[str, str]:
 
 
 async def run_agent(
-    agent: "Agent[None, CorrectionCandidate]",
+    agent: "Agent[object, CorrectionCandidate]",
     essay_text: str,
     prompt: str,
     model_settings: dict[str, Any],
@@ -109,7 +109,7 @@ async def run_agent(
                 validation_error_type=type(exc).__name__,
             )
 
-        usage = result.usage()
+        usage = result.usage
         return ProviderResponse(
             raw_text=extract_raw_output_text(result.new_messages()),
             raw_request=raw_request,

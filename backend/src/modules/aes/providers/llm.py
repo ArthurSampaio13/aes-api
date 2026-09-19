@@ -11,7 +11,7 @@ from .base import CorrectionCandidate, ProviderResponse
 class LLMCorrectionProvider:
     def __init__(self, model_id: str) -> None:
         self.model_id = model_id
-        self.agent = Agent(resolve_agent_model(model_id), output_type=CorrectionCandidate, output_retries=0)
+        self.agent = Agent(resolve_agent_model(model_id), output_type=CorrectionCandidate, retries={"output": 0})
 
     async def correct(self, essay_text: str, prompt: str, params: dict[str, Any]) -> ProviderResponse:
         return await run_agent(

@@ -41,7 +41,8 @@ dependencies = [
     "user-agents>=2.2.0",
     "wtforms>=3.1.2",
     "loguru>=0.7.3",
-    "pydantic-ai-slim[openrouter]>=1.38.0",
+    "pydantic-ai-slim[openrouter]==2.46.0",
+    "pydantic-ai-harness~=0.32.0",
 ]
 
 [project.optional-dependencies]

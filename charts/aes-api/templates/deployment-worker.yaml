@@ -31,6 +31,8 @@ spec:
               value: {{ .Values.worker.metricsPort | quote }}
             - name: TASKIQ_WORKER_CONCURRENCY
               value: {{ .Values.worker.concurrency | quote }}
+            - name: PYDANTIC_AI_NO_BANNER
+              value: "1"
           envFrom:
             - secretRef:
                 name: {{ .Values.envSecretName }}
