@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic_ai import ModelMessage, ModelResponse, capture_run_messages
 from pydantic_ai.messages import ModelMessagesTypeAdapter
-from pydantic_ai.models import Model, infer_model
+from pydantic_ai.models import Model
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider as OpenRouterModelProvider
 
@@ -23,14 +23,13 @@ def resolve_agent_model(model_id: str) -> Model:
 
     `infer_model` resolve a chave de API lendo `os.environ` diretamente; um `.env` carregado via
     `starlette.config.Config` nunca chega lá, então um worker corretamente configurado ainda falharia ao construir
-    o provider. O OpenRouter — único provider que este sistema registra — contorna isso; qualquer outro prefixo
-    segue pelo caminho genérico.
+    o provider. O OpenRouter é o único provider que este sistema registra; qualquer outro prefixo é erro.
     """
     prefix, _, name = model_id.partition(":")
-    if prefix == "openrouter":
-        api_key = get_settings().OPENROUTER_API_KEY or "unset"
-        return OpenRouterModel(name, provider=OpenRouterModelProvider(api_key=api_key))
-    return infer_model(model_id)
+    if prefix != "openrouter":
+        raise ValueError(f"Unsupported model prefix: {prefix}")
+    api_key = get_settings().OPENROUTER_API_KEY or "unset"
+    return OpenRouterModel(name, provider=OpenRouterModelProvider(api_key=api_key))
 
 
 def openrouter_model_settings(temperature: float) -> dict[str, Any]:

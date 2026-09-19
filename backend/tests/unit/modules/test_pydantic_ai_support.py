@@ -13,6 +13,7 @@ from src.infrastructure.config.settings import get_settings
 from src.modules.aes.providers._pydantic_ai_support import (
     extract_raw_output_text,
     openrouter_model_settings,
+    resolve_agent_model,
     run_agent,
     split_prompt_for_caching,
 )
@@ -131,6 +132,11 @@ def test_pin_com_segmentos_vazios_ignora_virgulas_duplicadas(env_de_settings):
     resultado = openrouter_model_settings(0.0)
 
     assert resultado["openrouter_provider"]["order"] == ["anthropic", "deepinfra"]
+
+
+def test_prefixo_desconhecido_falha_alto_em_vez_de_cair_em_fallback():
+    with pytest.raises(ValueError, match="Unsupported model prefix"):
+        resolve_agent_model("anthropic:claude-sonnet-4.6")
 
 
 @pytest.mark.asyncio
