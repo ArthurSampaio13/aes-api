@@ -1,4 +1,8 @@
-export KUBECONFIG ?= $(HOME)/.kube/kind-aes-local.yaml
+# Atribuicao simples, nao ?=: o ?= respeita a variavel de ambiente, e quem
+# exporta KUBECONFIG no shell para o kubectx enxergar o cluster local faria todo
+# alvo daqui apontar para o contexto atual — que pode ser um EKS de producao.
+# Override explicito segue valendo: make KUBECONFIG=... <alvo>.
+export KUBECONFIG = $(HOME)/.kube/kind-aes-local.yaml
 
 CLUSTER ?= aes-local
 MISE := mise exec --
