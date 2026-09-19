@@ -1,7 +1,8 @@
 import uuid as uuid_pkg
+from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy import ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -44,6 +45,12 @@ class CorrectionAttempt(Base, UUIDMixin, TimestampMixin):
     validation_errors: Mapped[dict[str, Any] | None] = mapped_column(JSONB, default=None)
     error_message: Mapped[str | None] = mapped_column(Text, default=None)
     code_version: Mapped[str | None] = mapped_column(String(100), default=None)
+    cache_read_tokens: Mapped[int | None] = mapped_column(Integer, default=None)
+    cache_write_tokens: Mapped[int | None] = mapped_column(Integer, default=None)
+    cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 8), default=None)
+    served_provider: Mapped[str | None] = mapped_column(String(100), default=None)
+    guardrail_events: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, default=None)
+    model_retries: Mapped[int | None] = mapped_column(Integer, default=None)
 
 
 class CorrectionResult(Base, UUIDMixin, TimestampMixin):

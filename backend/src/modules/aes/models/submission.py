@@ -1,7 +1,8 @@
 import uuid as uuid_pkg
+from typing import Any
 
 from sqlalchemy import ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ....infrastructure.database.models import TimestampMixin, UUIDMixin
@@ -28,3 +29,4 @@ class Submission(Base, UUIDMixin, TimestampMixin):
     input_type: Mapped[str] = mapped_column(String(10), nullable=False)
     original_ref: Mapped[str] = mapped_column(String(500), nullable=False)
     raw_text: Mapped[str | None] = mapped_column(Text, default=None)
+    transcription_meta: Mapped[dict[str, Any] | None] = mapped_column(JSONB, default=None)

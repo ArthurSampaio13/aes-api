@@ -1,6 +1,7 @@
 import uuid
 
 from src.modules.aes.models.correction import CorrectionAttempt, CorrectionJob, CorrectionResult
+from src.modules.aes.models.submission import Submission
 
 
 def test_correction_job_defaults():
@@ -25,6 +26,16 @@ def test_correction_attempt_records_token_usage():
     )
     assert attempt.tokens_in == 120
     assert attempt.error_message is None
+
+
+def test_attempt_carrega_as_colunas_de_traceabilidade():
+    colunas = CorrectionAttempt.__table__.columns
+    esperadas = {"cache_read_tokens", "cache_write_tokens", "cost_usd", "served_provider", "guardrail_events", "model_retries"}
+    assert esperadas <= set(colunas.keys())
+
+
+def test_submission_carrega_o_rastro_da_transcricao():
+    assert "transcription_meta" in Submission.__table__.columns.keys()
 
 
 def test_correction_result_requires_teacher_review_by_default():
