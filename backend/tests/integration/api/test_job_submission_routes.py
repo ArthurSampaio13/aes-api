@@ -1,8 +1,12 @@
+import time
+
 import pytest
 
 from src.infrastructure.auth.session.dependencies import get_current_user, get_optional_user
 from src.interfaces.main import app
+from src.modules.aes import catalog as catalog_module
 from src.modules.aes import service as service_module
+from src.modules.aes.catalog import ModelInfo
 from src.modules.aes.models.rubric import PromptTemplate
 from src.modules.aes.providers.base import FIXED_CRITERIA
 from src.modules.aes.storage import ObjectStorage, get_object_storage
@@ -209,3 +213,75 @@ async def test_submit_batch_authenticates_via_api_key_header(auth_client, db_ses
 
     assert response.status_code == 201
     assert len(response.json()["job_ids"]) == 1
+
+
+def _prime_the_catalog(monkeypatch):
+    monkeypatch.setattr(
+        catalog_module,
+        "_cached_catalog",
+        {
+            "deepseek/deepseek-v4.1-flash": ModelInfo(
+                id="deepseek/deepseek-v4.1-flash",
+                input_modalities=["text", "image"],
+                prompt_price=0.0,
+                completion_price=0.0,
+            )
+        },
+    )
+    monkeypatch.setattr(catalog_module, "_cached_at", time.monotonic())
+
+
+@pytest.mark.asyncio
+async def test_submit_batch_rejects_a_model_absent_from_the_catalog(auth_client, db_session, test_user, monkeypatch):
+    essay_prompt_uuid = await _create_essay_prompt(auth_client, db_session, test_user)
+    _prime_the_catalog(monkeypatch)
+
+    response = await auth_client.post(
+        "/api/v1/aes/jobs",
+        json={
+            "essay_prompt_uuid": essay_prompt_uuid,
+            "texts": ["Redação de teste."],
+            "provider": "openrouter",
+            "model": "deepseek/typo",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_submit_batch_rejects_a_provider_outside_the_registry(auth_client, db_session, test_user):
+    essay_prompt_uuid = await _create_essay_prompt(auth_client, db_session, test_user)
+
+    response = await auth_client.post(
+        "/api/v1/aes/jobs",
+        json={
+            "essay_prompt_uuid": essay_prompt_uuid,
+            "texts": ["Redação de teste."],
+            "provider": "bedrock",
+            "model": "anthropic.claude-3-haiku-20240307-v1:0",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_submit_image_batch_rejects_a_provider_outside_the_registry(auth_client, db_session, test_user):
+    essay_prompt_uuid = await _create_essay_prompt(auth_client, db_session, test_user)
+    fake_client = _FakeImageS3Client()
+    app.dependency_overrides[get_object_storage] = lambda: ObjectStorage(
+        bucket="test-bucket", client_factory=lambda: fake_client
+    )
+
+    try:
+        response = await auth_client.post(
+            "/api/v1/aes/jobs/images",
+            data={"essay_prompt_uuid": essay_prompt_uuid, "provider": "bedrock", "model": "claude-3-haiku"},
+            files=[("images", ("essay.jpg", b"fake-jpeg-bytes", "image/jpeg"))],
+        )
+    finally:
+        app.dependency_overrides.pop(get_object_storage, None)
+
+    assert response.status_code == 422
+    assert fake_client.objects == {}

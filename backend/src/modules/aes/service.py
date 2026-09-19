@@ -12,7 +12,7 @@ from .catalog import fetch_catalog
 from .crud import crud_correction_jobs, crud_correction_results, crud_essay_prompts, crud_prompt_templates, crud_rubrics
 from .models.correction import CorrectionAttempt, CorrectionJob
 from .models.submission import Batch, Submission
-from .providers.registry import resolve_model
+from .providers.registry import PROVIDER_FACTORIES, resolve_model
 from .schemas.essay_prompt import EssayPromptCreate, EssayPromptCreateInternal, EssayPromptRead
 from .schemas.rubric import RubricCreate, RubricCreateInternal, RubricRead
 from .schemas.submission import BatchSubmitRequest, JobResultRead
@@ -83,6 +83,8 @@ class AesService:
             )
 
     async def ensure_model_is_known(self, provider: str, model: str | None, catalog_loader: Any = fetch_catalog) -> None:
+        if provider not in PROVIDER_FACTORIES:
+            raise ValidationError(f"Unknown provider: {provider}")
         if provider == "mock" or not model:
             return
         try:
