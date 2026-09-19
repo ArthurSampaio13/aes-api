@@ -531,15 +531,28 @@ def noop_taskiq_broker(monkeypatch):
 class FakeS3Client:
     def __init__(self):
         self.put_calls: list[dict] = []
+        self.objects: dict[str, bytes] = {}
 
     async def put_object(self, Bucket, Key, Body, ContentType):
         self.put_calls.append({"Bucket": Bucket, "Key": Key, "Body": Body, "ContentType": ContentType})
+        self.objects[Key] = Body
+
+    async def get_object(self, Bucket, Key):
+        return {"Body": _FakeS3Body(self.objects[Key])}
 
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, *exc):
         return False
+
+
+class _FakeS3Body:
+    def __init__(self, data: bytes):
+        self._data = data
+
+    async def read(self) -> bytes:
+        return self._data
 
 
 class CorrectionJobFixture:
@@ -550,7 +563,8 @@ class CorrectionJobFixture:
     def __init__(self, db_session: AsyncSession, test_user: dict):
         self.db_session = db_session
         self.test_user = test_user
-        self.storage = ObjectStorage(bucket="test-bucket", client_factory=lambda: FakeS3Client())
+        self._s3_client = FakeS3Client()
+        self.storage = ObjectStorage(bucket="test-bucket", client_factory=lambda: self._s3_client)
 
     async def build(
         self,

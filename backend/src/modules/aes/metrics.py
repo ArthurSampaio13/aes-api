@@ -21,6 +21,13 @@ CORRECTION_LATENCY_MS = Histogram(
 CORRECTION_ATTEMPTS_TOTAL = Counter(
     "aes_correction_attempts_total", "Correction attempts by outcome", ["provider", "model", "outcome"]
 )
+CORRECTION_CACHE_TOKENS = Histogram(
+    "aes_correction_cache_tokens",
+    "Cached prompt tokens per attempt, by provider/model/direction",
+    ["provider", "model", "direction"],
+    buckets=(100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000),
+)
+GUARDRAIL_VERDICTS_TOTAL = Counter("aes_guardrail_verdicts_total", "Guardrail verdicts by guard", ["guard", "veredito"])
 
 
 def start_metrics_server(port: int = 9464) -> None:

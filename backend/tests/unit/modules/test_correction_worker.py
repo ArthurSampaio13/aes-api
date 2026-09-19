@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -7,9 +8,11 @@ from src.infrastructure.config.settings import get_settings
 from src.modules.aes.metrics import CORRECTION_JOBS_TOTAL
 from src.modules.aes.models.correction import CorrectionAttempt, CorrectionJob, CorrectionResult
 from src.modules.aes.models.submission import Submission
+from src.modules.aes.providers.base import FIXED_CRITERIA, CorrectionCandidate, ProviderResponse
 from src.modules.aes.providers.mock import MockProvider
 from src.modules.aes.providers.ocr_base import OCRResult
 from src.modules.aes.storage import ObjectStorage
+from src.modules.common.exceptions import TranscriptionQualityError
 from tests.conftest import FakeS3Client
 
 
@@ -238,3 +241,92 @@ class _GettableFakeS3Client:
 
     async def __aexit__(self, *exc):
         return False
+
+
+@pytest.mark.asyncio
+async def test_attempt_grava_cache_custo_provedor_e_vereditos(correction_job_fixture):
+    municipio, job = await correction_job_fixture.build()
+
+    class ProviderComCache:
+        model_id = "openrouter:modelo/teste"
+
+        async def correct(self, essay_text: str, prompt: str, params: dict[str, Any]) -> ProviderResponse:
+            return ProviderResponse(
+                raw_text="{}",
+                structured=CorrectionCandidate.model_validate(
+                    {
+                        "scores": {c: {"nota": 7, "justificativa": f"ok {c}"} for c in FIXED_CRITERIA},
+                        "feedback": "ok",
+                        "sugestao_acionavel": "revise",
+                    }
+                ),
+                tokens_in=100,
+                tokens_out=20,
+                latency_ms=10,
+                cache_read_tokens=900,
+                cache_write_tokens=50,
+                cost_usd=Decimal("0.00012345"),
+                served_provider="anthropic",
+                model_retries=1,
+                guardrail_events=[{"guard": "citacoes", "veredito": "retry", "motivo": "citacao ausente: x"}],
+            )
+
+    await correction_job_fixture.process(municipio, job, provider=ProviderComCache())
+
+    db_session = correction_job_fixture.db_session
+    attempt = (
+        (await db_session.execute(select(CorrectionAttempt).where(CorrectionAttempt.correction_job_id == job.uuid)))
+        .scalars()
+        .one()
+    )
+    assert attempt.tokens_in == 100
+    assert attempt.cache_read_tokens == 900
+    assert attempt.cache_write_tokens == 50
+    assert attempt.cost_usd == Decimal("0.00012345")
+    assert attempt.served_provider == "anthropic"
+    assert attempt.model_retries == 1
+    assert attempt.guardrail_events[0]["guard"] == "citacoes"
+
+
+@pytest.mark.asyncio
+async def test_transcricao_insuficiente_falha_o_job_sem_chamar_o_corretor(correction_job_fixture):
+    municipio, job = await correction_job_fixture.build(
+        input_type="image", raw_text=None, original_ref="submissions/teste/original.png"
+    )
+    await correction_job_fixture.storage.put(
+        key="submissions/teste/original.png", content=b"\x89PNG falso", content_type="image/png"
+    )
+
+    class OCRQueFalha:
+        async def extract_text(self, image_bytes: bytes) -> OCRResult:
+            raise TranscriptionQualityError("transcricao insuficiente")
+
+    class ProviderQueNaoDeveRodar:
+        model_id = "openrouter:modelo/teste"
+
+        async def correct(self, essay_text: str, prompt: str, params: dict[str, Any]) -> ProviderResponse:
+            raise AssertionError("o corretor nao pode rodar com transcricao insuficiente")
+
+    with pytest.raises(TranscriptionQualityError):
+        await correction_job_fixture.process(municipio, job, provider=ProviderQueNaoDeveRodar(), ocr_provider=OCRQueFalha())
+
+    db_session = correction_job_fixture.db_session
+    await db_session.refresh(job)
+    assert job.status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_transcricao_deixa_rastro_na_submissao(correction_job_fixture):
+    municipio, job = await correction_job_fixture.build(
+        input_type="image", raw_text=None, original_ref="submissions/rastro/original.png"
+    )
+    await correction_job_fixture.storage.put(
+        key="submissions/rastro/original.png", content=b"\x89PNG falso", content_type="image/png"
+    )
+
+    await correction_job_fixture.process(municipio, job)
+
+    db_session = correction_job_fixture.db_session
+    submission = (await db_session.execute(select(Submission).where(Submission.uuid == job.submission_id))).scalars().one()
+    assert submission.transcription_meta["model"] == "mock"
+    assert submission.raw_text
