@@ -79,9 +79,7 @@ async def get_rubric(
 
 
 @router.get("/models", response_model=list[ModelInfo])
-@cache(key_prefix="aes_model_catalog", expiration=3600)
 async def list_models(
-    request: Request,
     current_user: Annotated[dict[str, Any], Depends(_rubric_read)],
     input_modality: str | None = None,
 ) -> list[dict[str, Any]]:
