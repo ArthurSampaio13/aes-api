@@ -3,6 +3,7 @@
 All five rubric criteria are fixed by AGENTS.md.
 """
 
+from decimal import Decimal
 from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -51,6 +52,12 @@ class ProviderResponse(BaseModel):
     latency_ms: int
     validation_error: str | None = None
     validation_error_type: str | None = None
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+    cost_usd: Decimal | None = None
+    served_provider: str | None = None
+    guardrail_events: list[dict[str, str]] = Field(default_factory=list)
+    model_retries: int = 0
 
 
 class CorrectionProvider(Protocol):

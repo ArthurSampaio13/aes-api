@@ -92,12 +92,26 @@ def split_prompt_for_caching(prompt: str, essay_text: str) -> tuple[str, str]:
     return prefix, essay_text + suffix
 
 
+def contar_respostas_do_modelo(messages: Sequence[ModelMessage]) -> int:
+    return sum(isinstance(m, ModelResponse) for m in messages)
+
+
+def provedor_servido(messages: Sequence[ModelMessage]) -> str | None:
+    for message in reversed(messages):
+        if isinstance(message, ModelResponse) and message.provider_details:
+            provedor = message.provider_details.get("provider_name") or message.provider_details.get("provider")
+            if provedor:
+                return str(provedor)
+    return None
+
+
 async def run_agent(
     agent: "Agent[object, CorrectionCandidate]",
     essay_text: str,
     prompt: str,
     model_settings: dict[str, Any],
     model_id: str,
+    deps: Any = None,
 ) -> ProviderResponse:
     """Run a pydantic-ai agent and map its result onto ProviderResponse.
 
@@ -110,7 +124,9 @@ async def run_agent(
 
     with capture_run_messages() as exchange:
         try:
-            result = await agent.run(user_content, instructions=instructions, model_settings=model_settings)  # type: ignore[call-overload]
+            result = await agent.run(  # type: ignore[call-overload]
+                user_content, instructions=instructions, model_settings=model_settings, deps=deps
+            )
         except Exception as exc:
             return ProviderResponse(
                 raw_text="",
@@ -122,16 +138,25 @@ async def run_agent(
                 latency_ms=int((time.monotonic() - started_at) * 1000),
                 validation_error=str(exc),
                 validation_error_type=type(exc).__name__,
+                guardrail_events=list(getattr(deps, "events", deps) or []) if deps is not None else [],
+                model_retries=max(contar_respostas_do_modelo(exchange) - 1, 0),
             )
 
         usage = result.usage
+        eventos = list(getattr(deps, "events", deps) or []) if deps is not None else []
         return ProviderResponse(
             raw_text=extract_raw_output_text(result.new_messages()),
             raw_request=raw_request,
             raw_response=dump_exchange(exchange),
             structured=result.output,
-            tokens_in=usage.input_tokens + usage.cache_read_tokens + usage.cache_write_tokens,
+            tokens_in=usage.input_tokens,
             tokens_out=usage.output_tokens,
+            cache_read_tokens=usage.cache_read_tokens,
+            cache_write_tokens=usage.cache_write_tokens,
+            cost_usd=usage.cost,
+            served_provider=provedor_servido(exchange),
+            guardrail_events=eventos,
+            model_retries=max(contar_respostas_do_modelo(exchange) - 1, 0),
             latency_ms=int((time.monotonic() - started_at) * 1000),
             validation_error=None,
         )

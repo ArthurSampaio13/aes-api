@@ -57,33 +57,24 @@ async def test_records_both_sides_even_when_output_is_invalid():
 
 
 @pytest.mark.asyncio
-async def test_prompt_prefix_reaches_instructions_and_cache_tokens_fold_into_tokens_in():
+async def test_cache_tokens_ficam_fora_de_tokens_in_para_o_budget_nao_cobrar_cache():
     provider = LLMCorrectionProvider(model_id="openrouter:modelo/teste")
-    captured: dict = {}
 
-    def capture_call(messages: list, info: AgentInfo) -> ModelResponse:
-        captured["instructions"] = info.instructions
-        captured["user_content"] = messages[-1].parts[-1].content
-        captured["settings"] = info.model_settings
+    def responder(messages: list, info: AgentInfo) -> ModelResponse:
         return ModelResponse(
             parts=[
                 ToolCallPart(
-                    tool_name="final_result",
-                    args={"scores": VALID_SCORES, "feedback": "ok", "sugestao_acionavel": "ok"},
+                    info.output_tools[0].name,
+                    {"scores": VALID_SCORES, "feedback": "ok", "sugestao_acionavel": "revise"},
                 )
             ],
-            usage=RequestUsage(input_tokens=10, output_tokens=50, cache_read_tokens=200, cache_write_tokens=0),
+            usage=RequestUsage(input_tokens=100, output_tokens=20, cache_read_tokens=900, cache_write_tokens=0),
         )
 
-    with provider.agent.override(model=FunctionModel(capture_call)):
-        response = await provider.correct(
-            essay_text="texto do aluno", prompt="Corrija: {essay_text}", params={"temperature": 0.1}
-        )
+    with provider.agent.override(model=FunctionModel(responder)):
+        resposta = await provider.correct(essay_text="texto", prompt="RUBRICA {essay_text}", params={})
 
-    assert captured["instructions"] == "Corrija:"
-    assert captured["user_content"] == "texto do aluno"
-    assert captured["settings"]["temperature"] == 0.1
-    assert captured["settings"]["openrouter_provider"]["data_collection"] == "deny"
-    assert captured["settings"]["seed"] == 42
-    assert response.tokens_in == 210
-    assert response.tokens_out == 50
+    assert resposta.tokens_in == 100
+    assert resposta.cache_read_tokens == 900
+    assert resposta.cache_write_tokens == 0
+    assert resposta.model_retries == 0

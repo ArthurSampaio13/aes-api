@@ -4,8 +4,6 @@ config."""
 import json
 from typing import Any
 
-from pydantic import ValidationError
-
 from .base import FIXED_CRITERIA, CorrectionCandidate, ProviderResponse
 
 
@@ -18,14 +16,7 @@ class MockProvider:
             "feedback": "Feedback simulado: revise a coesão entre parágrafos.",
             "sugestao_acionavel": "Releia o segundo parágrafo e explicite a relação de causa e consequência.",
         }
-        try:
-            structured = CorrectionCandidate.model_validate(candidate_dict)
-            validation_error = None
-            validation_error_type = None
-        except ValidationError as exc:
-            structured = None
-            validation_error = str(exc)
-            validation_error_type = type(exc).__name__
+        structured = CorrectionCandidate.model_validate(candidate_dict)
 
         return ProviderResponse(
             raw_text=str(candidate_dict),
@@ -39,6 +30,4 @@ class MockProvider:
             tokens_in=len(essay_text.split()) + len(prompt.split()),
             tokens_out=40,
             latency_ms=5,
-            validation_error=validation_error,
-            validation_error_type=validation_error_type,
         )
