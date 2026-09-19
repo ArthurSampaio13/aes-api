@@ -7,6 +7,11 @@ from src.modules.aes.providers.llm import LLMCorrectionProvider
 VALID_SCORES = {c: {"nota": 7, "justificativa": "ok"} for c in FIXED_CRITERIA}
 
 
+@pytest.fixture(autouse=True)
+def _set_openrouter_api_key_for_infer_model(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-for-provider-tests")
+
+
 @pytest.mark.asyncio
 async def test_parses_structured_output_and_usage():
     provider = LLMCorrectionProvider(model_id="openrouter:modelo/teste")
