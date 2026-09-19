@@ -212,44 +212,56 @@ Returns `scores` for the five fixed criteria (`adequacao_tema`,
 ## 5b. Using a real LLM provider
 
 The stack defaults to the `mock` correction provider — deterministic, free, and
-what every automated test uses. To run a correction against a real model, put a
-key in `infra/terraform.tfvars` and re-run `make infra`:
+what every automated test uses. Real corrections go through **OpenRouter**, the
+only network provider. Put the key in `infra/terraform.tfvars` and re-run
+`make infra`:
 
 ```hcl
-groq_api_key = "gsk_..."
+openrouter_api_key = "sk-or-..."
 ```
 
-Then submit a job naming that provider:
+Then submit a job naming the provider and the model:
 
 ```bash
-curl -s "${AUTH[@]}" -X POST "$API/api/v1/aes/jobs" -d '{..., "provider": "groq", "model": "llama-3.3-70b-versatile"}'
+curl -s "${AUTH[@]}" -X POST "$API/api/v1/aes/jobs" \
+  -d '{..., "provider": "openrouter", "model": "deepseek/deepseek-v4.1-flash"}'
 ```
 
-`GET /api/v1/aes/models` reports which providers have credentials
-(`available: true`) without making a network call.
+The `model` is the OpenRouter id verbatim, `vendor/model`. It is checked
+against the live catalogue at submission, so a typo returns 422 immediately
+instead of burning a queued job on a call that was never going to work. If the
+catalogue is unreachable the model is accepted rather than blocking submissions
+on a third party being down.
 
-Presets ship for these gateways, all OpenAI-compatible and all offering a
-no-credit-card free tier as verified on **2026-09-05** — free tiers change
-often, so check before relying on one:
+Omitting `model` falls back to `AES_DEFAULT_MODEL`.
 
-| provider | gateway | notes |
-| --- | --- | --- |
-| `openrouter` | OpenRouter | the default choice; use a `:free` model suffix |
-| `groq` | Groq | fastest free inference; ~30 req/min, 1,000 req/day |
-| `cerebras` | Cerebras | highest daily volume (~1M tokens/day) |
-| `github` | GitHub Models | free with a GitHub account; widest model catalogue |
-| `gemini` | Google AI Studio | a non-Llama model family, useful for comparison |
+### Which models are available
 
-Model names come from `{PROVIDER}_MODEL` settings and can be overridden per job.
+```bash
+curl -s -H "X-API-Key: $API_KEY" "$API/api/v1/aes/models"
+```
 
-**Cerebras caveat:** structured-output support there is model-dependent — some
-models reject `tools` and `response_format` together, which surfaces as a
-`validation_error` on every attempt rather than a correction. If that happens,
-switch the model rather than the gateway.
+This mirrors the OpenRouter catalogue — roughly 300 entries with `id`, input
+modalities and price, cached for an hour. Filter it when you need a model that
+reads images:
 
-Adding another OpenAI-compatible gateway is a `base_url` entry in
-`GATEWAY_BASE_URLS` (`backend/src/modules/aes/providers/openai_compatible.py`)
-plus its key/model settings — no new provider class.
+```bash
+curl -s -H "X-API-Key: $API_KEY" "$API/api/v1/aes/models?input_modality=image"
+```
+
+That filter matters for transcription: about 275 of the models accept images,
+and picking one of the rest fails only after the job is already running.
+
+### Transcribing handwriting
+
+`AES_OCR_PROVIDER` takes `mock` or `vision`. The `vision` provider sends the
+page straight to a multimodal model through the same OpenRouter path, so a
+scanned image and a single-page PDF are handled the same way.
+
+Its prompt forbids correcting spelling, accentuation and agreement. That
+prohibition is load-bearing rather than cosmetic: a model that tidies up the
+student's text would make the `adequacao_ling` criterion grade the model's
+writing instead of the student's, inflating the score with no trace of it.
 
 ## 6. Observability
 

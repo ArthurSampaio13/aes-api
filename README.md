@@ -63,9 +63,11 @@ Worker → se imagem: OCR → transcrição
 ```
 
 **Provedores desacoplados por `Protocol`**, escolhidos por job: `mock`
-(determinístico, default em testes), `openrouter` e `bedrock` para correção;
-`mock` e `textract` para OCR. Trocar de modelo não exige mexer no worker — é o
-que viabiliza comparar condições experimentais.
+(determinístico, default em testes) e `openrouter` para correção; `mock` e
+`vision` para OCR. Toda chamada de modelo passa pela pydantic-ai, que resolve o
+provedor a partir da string `provider:model` e valida a saída contra o schema.
+Trocar de modelo não exige mexer no worker — é o que viabiliza comparar
+condições experimentais.
 
 **Multi-tenancy por município** com Row-Level Security do PostgreSQL. O
 isolamento é garantido no banco, sob um papel `NOSUPERUSER NOBYPASSRLS`, e vale

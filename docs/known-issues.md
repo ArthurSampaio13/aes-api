@@ -155,8 +155,7 @@ ______________________________________________________________________
 
 ## O Textract não lê manuscrito em português
 
-**Estado:** contornado por `AES_OCR_PROVIDER=bedrock_vision`, à espera da
-verificação da conta AWS.
+**Estado:** resolvido — o Textract foi removido do projeto.
 
 Medido com 28 redações reais de uma turma de 9º ano: a confiança média do
 Textract ficou em **65,1%**, com 97 de 99 palavras classificadas como
@@ -176,12 +175,18 @@ texto byte a byte idêntico ao `DetectDocumentText`, então não existe engine
 separada para manuscrito. Melhorar resolução ajuda no geral (a AWS recomenda ao
 menos 150 DPI), mas não muda o idioma do modelo.
 
-### Contorno
+### Resolução
 
-`BedrockVisionProvider` manda a imagem ou o PDF a um modelo multimodal via
-Converse, que não tem essa restrição de idioma. Selecionado por
-`ocr_provider = "bedrock_vision"` no OpenTofu; o modelo sai de
-`vision_model_id`, hoje `us.xai.grok-4.6`.
+O `VisionOCRProvider` manda a imagem ou o PDF a um modelo multimodal, que não
+tem essa restrição de idioma. Selecionado por `ocr_provider = "vision"` no
+OpenTofu; o modelo sai de `vision_model`. A chamada passa pela pydantic-ai, que
+entrega a página como `BinaryContent` e traduz para o formato do provedor — o
+mesmo caminho da correção.
+
+Medido sobre as mesmas 28 redações: 28 transcrições legíveis, nenhuma nula. As
+notas subiram em todos os cinco critérios, e mais no critério que o OCR estava
+destruindo — `adequacao_ling` foi de 0,75 para 1,36 de média, `vocabulario` de
+1,11 para 1,64.
 
 A transcrição continua sendo gravada em `submissions.raw_text` em vez de a
 imagem ir direto ao corretor. Isso é deliberado: a seção 3.7 do TCC exige que o
