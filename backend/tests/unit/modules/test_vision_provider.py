@@ -6,9 +6,10 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 from src.modules.aes.providers.vision import TRANSCRIPTION_PROMPT, VisionOCRProvider
 
 
-@pytest.fixture(autouse=True)
-def _set_openrouter_api_key_for_infer_model(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-for-provider-tests")
+def test_construction_succeeds_without_the_key_in_the_process_environment(monkeypatch):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    provider = VisionOCRProvider(model_id="openrouter:modelo/teste")
+    assert provider.model_id == "openrouter:modelo/teste"
 
 
 PDF_BYTES = b"%PDF-1.4 conteudo"

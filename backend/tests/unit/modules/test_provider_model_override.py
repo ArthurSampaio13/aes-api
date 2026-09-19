@@ -5,17 +5,10 @@ registry, montado a partir das settings — a tentativa registrava um modelo que
 não foi usado.
 """
 
-import pytest
-
 from src.infrastructure.config.settings import get_settings
 from src.modules.aes.providers.registry import get_provider
 
 OUTRO_MODELO = "deepseek/deepseek-v4.1-flash"
-
-
-@pytest.fixture(autouse=True)
-def _set_openrouter_api_key_for_infer_model(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-for-provider-tests")
 
 
 def test_openrouter_uses_the_model_from_the_job() -> None:

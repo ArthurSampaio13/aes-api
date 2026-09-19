@@ -3,16 +3,15 @@
 from typing import Any
 
 from pydantic_ai import Agent
-from pydantic_ai.models import infer_model
 
-from ._pydantic_ai_support import run_agent
+from ._pydantic_ai_support import resolve_agent_model, run_agent
 from .base import CorrectionCandidate, ProviderResponse
 
 
 class LLMCorrectionProvider:
     def __init__(self, model_id: str) -> None:
         self.model_id = model_id
-        self.agent = Agent(infer_model(model_id), output_type=CorrectionCandidate, output_retries=0)
+        self.agent = Agent(resolve_agent_model(model_id), output_type=CorrectionCandidate, output_retries=0)
 
     async def correct(self, essay_text: str, prompt: str, params: dict[str, Any]) -> ProviderResponse:
         return await run_agent(

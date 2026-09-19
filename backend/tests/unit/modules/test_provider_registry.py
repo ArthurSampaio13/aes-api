@@ -7,11 +7,6 @@ from src.modules.aes.providers.registry import agent_model_id, get_ocr_provider,
 from src.modules.aes.providers.vision import VisionOCRProvider
 
 
-@pytest.fixture(autouse=True)
-def _set_openrouter_api_key_for_infer_model(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-for-provider-tests")
-
-
 def test_resolve_model_stays_bare():
     assert resolve_model("openrouter", "deepseek/deepseek-v4.1-flash") == "deepseek/deepseek-v4.1-flash"
 

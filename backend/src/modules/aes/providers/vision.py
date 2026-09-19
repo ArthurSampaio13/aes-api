@@ -5,8 +5,8 @@ não tem essa restrição de idioma.
 """
 
 from pydantic_ai import Agent, BinaryContent
-from pydantic_ai.models import infer_model
 
+from ._pydantic_ai_support import resolve_agent_model
 from .ocr_base import OCRResult
 
 TRANSCRIPTION_PROMPT = """Transcreva exatamente o texto manuscrito desta redação escolar.
@@ -31,7 +31,7 @@ def _media_type(data: bytes) -> str:
 class VisionOCRProvider:
     def __init__(self, model_id: str) -> None:
         self.model_id = model_id
-        self.agent = Agent(infer_model(model_id), output_type=str)
+        self.agent = Agent(resolve_agent_model(model_id), output_type=str)
 
     async def extract_text(self, image_bytes: bytes) -> OCRResult:
         result = await self.agent.run(
