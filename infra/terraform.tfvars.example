@@ -9,15 +9,10 @@ cerebras_api_key   = ""
 github_api_key     = ""
 gemini_api_key     = ""
 
-# Textract roda na AWS de verdade: nao ha emulacao no LocalStack. O perfil local
-# abaixo provisiona o bucket do emissor OIDC e a role; os pods nao usam chave
-# nenhuma, eles trocam o token do service account por credenciais temporarias.
-# Textract nao existe em sa-east-1 — mantenha uma regiao que o ofereca.
-aws_profile = "tcc"
-aws_region  = "us-east-1"
+# O S3 e a fila do LocalStack leem a regiao daqui; nao ha chamada a AWS real.
+aws_region = "us-east-1"
 
-# mock mantem tudo offline; textract so le manuscrito em ingles, entao para
-# redacao em portugues use bedrock_vision, que manda a imagem a um modelo
-# multimodal e nao tem restricao de idioma.
-ocr_provider    = "bedrock_vision"
-vision_model_id = "us.xai.grok-4.6"
+# mock mantem tudo offline; vision manda a imagem a um modelo multimodal via
+# OpenRouter.
+ocr_provider = "vision"
+vision_model = "deepseek/deepseek-v4.1-flash"

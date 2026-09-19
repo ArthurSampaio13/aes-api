@@ -1,40 +1,20 @@
-module "oidc_issuer" {
-  source = "./modules/oidc-issuer"
-
-  region = var.aws_region
-}
-
 module "kind_cluster" {
   source = "./modules/kind-cluster"
 
-  service_account_issuer = module.oidc_issuer.issuer_url
-  cluster_name           = var.cluster_name
-  kubeconfig_path        = var.kubeconfig_path
-  node_image             = var.node_image
-  api_host_port          = var.api_host_port
-  grafana_host_port      = var.grafana_host_port
-}
-
-module "oidc_trust" {
-  source = "./modules/oidc-trust"
-
-  issuer_url           = module.oidc_issuer.issuer_url
-  bucket               = module.oidc_issuer.bucket
-  kubeconfig_path      = module.kind_cluster.kubeconfig_path
-  cluster_id           = module.kind_cluster.cluster_id
-  namespace            = "aes"
-  service_account_name = "aes-api"
+  cluster_name      = var.cluster_name
+  kubeconfig_path   = var.kubeconfig_path
+  node_image        = var.node_image
+  api_host_port     = var.api_host_port
+  grafana_host_port = var.grafana_host_port
 }
 
 module "platform" {
   source = "./modules/platform"
 
-  aws_role_arn          = module.oidc_trust.role_arn
   aws_region            = var.aws_region
   ocr_provider          = var.ocr_provider
-  bedrock_model_id      = var.bedrock_model_id
   openrouter_model      = var.openrouter_model
-  vision_model_id       = var.vision_model_id
+  vision_model          = var.vision_model
   kubeconfig_path       = module.kind_cluster.kubeconfig_path
   localstack_auth_token = var.localstack_auth_token
   localstack_image      = var.localstack_image

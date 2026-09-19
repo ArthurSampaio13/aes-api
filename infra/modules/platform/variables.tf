@@ -92,22 +92,12 @@ variable "gemini_api_key" {
   default     = ""
 }
 
-variable "aws_role_arn" {
-  description = "Role assumed by the API and worker through their projected service account token"
-  type        = string
-}
-
 variable "aws_region" {
   type = string
 }
 
 variable "ocr_provider" {
-  description = "mock keeps everything offline; textract calls real AWS"
-  type        = string
-}
-
-variable "bedrock_model_id" {
-  description = "Bedrock inference profile used by the bedrock correction provider"
+  description = "mock keeps everything offline; vision sends the image to an OpenRouter model"
   type        = string
 }
 
@@ -116,8 +106,8 @@ variable "openrouter_model" {
   type        = string
 }
 
-variable "vision_model_id" {
-  description = "Multimodal inference profile used to transcribe handwriting"
+variable "vision_model" {
+  description = "OpenRouter model used to transcribe handwriting"
   type        = string
 }
 

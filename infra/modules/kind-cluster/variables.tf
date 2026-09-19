@@ -22,8 +22,3 @@ variable "grafana_host_port" {
   description = "Host port published for the Grafana NodePort"
   type        = number
 }
-
-variable "service_account_issuer" {
-  description = "Public HTTPS URL serving the OIDC discovery document for this cluster"
-  type        = string
-}

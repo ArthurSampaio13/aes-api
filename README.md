@@ -88,13 +88,9 @@ tentativas que falharam, e é o que torna o resultado auditável e reproduzível
 Pré-requisitos: Docker, [mise](https://mise.jdx.dev) — que pina todo o resto —,
 8 GB de RAM, portas 8000 e 3000 livres, um token da LocalStack (o plano de
 estudante sai verificando conta do GitHub em
-[app.localstack.cloud](https://app.localstack.cloud)) e uma conta AWS com perfil
-local configurado — o OpenTofu cria lá um bucket S3 e uma role IAM, e o OCR roda
-no Textract de verdade, que o LocalStack não emula.
-
-Os pods não guardam credencial AWS nenhuma: o cluster é registrado como provedor
-OIDC e eles trocam o token do service account por credenciais temporárias. O
-passo a passo está em
+[app.localstack.cloud](https://app.localstack.cloud)) e uma chave da
+OpenRouter — OCR e correção rodam ambos por lá, basta a chave em
+`infra/terraform.tfvars`. O passo a passo está em
 [`docs/getting-started/running-aes.md`](docs/getting-started/running-aes.md).
 
 ```bash

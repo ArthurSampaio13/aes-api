@@ -68,28 +68,16 @@ variable "gemini_api_key" {
   default     = ""
 }
 
-variable "aws_profile" {
-  description = "Local AWS profile used to provision the OIDC bucket and IAM role"
-  type        = string
-  default     = "tcc"
-}
-
 variable "aws_region" {
-  description = "Textract is not offered in sa-east-1; keep this on a region that has it"
+  description = "Region used by the LocalStack-backed S3 and SQS clients"
   type        = string
   default     = "us-east-1"
 }
 
 variable "ocr_provider" {
-  description = "mock keeps the stack offline; textract calls real AWS through the assumed role"
+  description = "mock keeps the stack offline; vision sends the image to an OpenRouter model"
   type        = string
-  default     = "textract"
-}
-
-variable "bedrock_model_id" {
-  description = "Inference profile, not a bare model id: the Claude models on this account are INFERENCE_PROFILE only"
-  type        = string
-  default     = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+  default     = "mock"
 }
 
 variable "openrouter_model" {
@@ -98,10 +86,10 @@ variable "openrouter_model" {
   default     = "nvidia/nemotron-3.5-lightning:free"
 }
 
-variable "vision_model_id" {
-  description = "Multimodal inference profile used when ocr_provider is bedrock_vision"
+variable "vision_model" {
+  description = "OpenRouter model used to transcribe handwriting"
   type        = string
-  default     = "us.xai.grok-4.6"
+  default     = "deepseek/deepseek-v4.1-flash"
 }
 
 variable "localstack_image" {
