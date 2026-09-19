@@ -1,8 +1,11 @@
 import json
+from dataclasses import dataclass, field
+from decimal import Decimal
 
 import pytest
-from pydantic_ai import ModelRequest, ModelResponse, TextPart, ToolCallPart, UserPromptPart
+from pydantic_ai import Agent, ModelRequest, ModelResponse, RequestUsage, TextPart, ToolCallPart, UserPromptPart
 from pydantic_ai.models import ModelRequestParameters
+from pydantic_ai.models.function import AgentInfo, FunctionDef, FunctionModel
 from pydantic_ai.models.openrouter import OpenRouterModel, OpenRouterModelSettings
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 
@@ -10,8 +13,34 @@ from src.infrastructure.config.settings import get_settings
 from src.modules.aes.providers._pydantic_ai_support import (
     extract_raw_output_text,
     openrouter_model_settings,
+    run_agent,
     split_prompt_for_caching,
 )
+from src.modules.aes.providers.base import FIXED_CRITERIA, CorrectionCandidate
+
+VALID_SCORES = {c: {"nota": 7, "justificativa": "ok"} for c in FIXED_CRITERIA}
+
+
+def _agente_de_teste(responder: FunctionDef) -> Agent[object, CorrectionCandidate]:
+    return Agent(FunctionModel(responder), output_type=CorrectionCandidate, retries={"output": 0})
+
+
+def _resposta_do_modelo(usage: RequestUsage, provider_details: dict | None = None) -> ModelResponse:
+    return ModelResponse(
+        parts=[
+            ToolCallPart(
+                tool_name="final_result",
+                args={"scores": VALID_SCORES, "feedback": "ok", "sugestao_acionavel": "ok"},
+            )
+        ],
+        usage=usage,
+        provider_details=provider_details,
+    )
+
+
+@dataclass
+class _DepsFalsos:
+    events: list[dict[str, str]] = field(default_factory=list)
 
 
 def test_extract_raw_output_text_reads_tool_call_args():
@@ -117,3 +146,71 @@ async def test_a_configuracao_de_cache_produz_cache_control_no_payload():
 
     assert "cache_control" in json.dumps(com_cache, default=str)
     assert "cache_control" not in json.dumps(sem_cache, default=str)
+
+
+@pytest.mark.asyncio
+async def test_served_provider_le_downstream_provider_que_o_adapter_openrouter_escreve():
+    """`_map_openrouter_provider_details` no adapter OpenRouter só escreve `downstream_provider`.
+
+    Sem checar essa chave primeiro, `served_provider` fica sempre `None` em produção mesmo com a
+    chamada real servida por um backend identificável.
+    """
+
+    def responder(messages: list, info: AgentInfo) -> ModelResponse:
+        return _resposta_do_modelo(
+            RequestUsage(input_tokens=10, output_tokens=5),
+            provider_details={"downstream_provider": "anthropic/claude-3.5-sonnet"},
+        )
+
+    resposta = await run_agent(
+        _agente_de_teste(responder),
+        essay_text="texto",
+        prompt="RUBRICA {essay_text}",
+        model_settings={},
+        model_id="openrouter:modelo/teste",
+    )
+
+    assert resposta.served_provider == "anthropic/claude-3.5-sonnet"
+
+
+@pytest.mark.asyncio
+async def test_guardrail_events_chegam_ao_response_a_partir_de_deps():
+    def responder(messages: list, info: AgentInfo) -> ModelResponse:
+        return _resposta_do_modelo(RequestUsage(input_tokens=10, output_tokens=5))
+
+    eventos = [{"guard": "transcricao", "veredito": "retry", "motivo": "poucas palavras"}]
+    deps = _DepsFalsos(events=eventos)
+
+    resposta = await run_agent(
+        _agente_de_teste(responder),
+        essay_text="texto",
+        prompt="RUBRICA {essay_text}",
+        model_settings={},
+        model_id="openrouter:modelo/teste",
+        deps=deps,
+    )
+
+    assert resposta.guardrail_events == eventos
+
+
+@pytest.mark.asyncio
+async def test_cost_usd_reflete_o_custo_reportado_pelo_usage_da_rodada():
+    """`cost_usd` reflete `usage.cost` sem alteração quando o `ModelResponse` já o traz pronto.
+
+    `genai-prices` não precifica `FunctionModel`/`TestModel`, então o caso não-nulo só é
+    exercitável aqui simulando o que o adapter OpenRouter faz de verdade: ler `usage.cost` do
+    corpo da resposta e colocá-lo em `RequestUsage.cost`.
+    """
+
+    def responder(messages: list, info: AgentInfo) -> ModelResponse:
+        return _resposta_do_modelo(RequestUsage(input_tokens=10, output_tokens=5, cost=Decimal("0.0042")))
+
+    resposta = await run_agent(
+        _agente_de_teste(responder),
+        essay_text="texto",
+        prompt="RUBRICA {essay_text}",
+        model_settings={},
+        model_id="openrouter:modelo/teste",
+    )
+
+    assert resposta.cost_usd == Decimal("0.0042")

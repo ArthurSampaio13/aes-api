@@ -68,7 +68,7 @@ async def test_cache_tokens_ficam_fora_de_tokens_in_para_o_budget_nao_cobrar_cac
                     {"scores": VALID_SCORES, "feedback": "ok", "sugestao_acionavel": "revise"},
                 )
             ],
-            usage=RequestUsage(input_tokens=100, output_tokens=20, cache_read_tokens=900, cache_write_tokens=0),
+            usage=RequestUsage(input_tokens=100, output_tokens=20, cache_read_tokens=900, cache_write_tokens=50),
         )
 
     with provider.agent.override(model=FunctionModel(responder)):
@@ -76,5 +76,5 @@ async def test_cache_tokens_ficam_fora_de_tokens_in_para_o_budget_nao_cobrar_cac
 
     assert resposta.tokens_in == 100
     assert resposta.cache_read_tokens == 900
-    assert resposta.cache_write_tokens == 0
+    assert resposta.cache_write_tokens == 50
     assert resposta.model_retries == 0

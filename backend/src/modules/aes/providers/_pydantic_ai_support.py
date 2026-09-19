@@ -97,9 +97,19 @@ def contar_respostas_do_modelo(messages: Sequence[ModelMessage]) -> int:
 
 
 def provedor_servido(messages: Sequence[ModelMessage]) -> str | None:
+    """O backend que de fato serviu a chamada.
+
+    `downstream_provider` é a chave que o adapter OpenRouter da pydantic-ai realmente escreve em
+    `provider_details` (`_map_openrouter_provider_details`). `provider_name` e `provider` ficam como
+    fallback inofensivo para um adapter futuro de outro provider.
+    """
     for message in reversed(messages):
         if isinstance(message, ModelResponse) and message.provider_details:
-            provedor = message.provider_details.get("provider_name") or message.provider_details.get("provider")
+            provedor = (
+                message.provider_details.get("downstream_provider")
+                or message.provider_details.get("provider_name")
+                or message.provider_details.get("provider")
+            )
             if provedor:
                 return str(provedor)
     return None
