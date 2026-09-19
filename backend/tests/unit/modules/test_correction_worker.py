@@ -60,6 +60,45 @@ async def test_worker_redelivery_of_done_job_is_a_no_op(correction_job_fixture):
     assert job.status == "done"
 
 
+@pytest.mark.asyncio
+async def test_worker_converges_to_done_when_result_already_committed_by_another_delivery(correction_job_fixture):
+    municipio, job = await correction_job_fixture.build()
+    db_session = correction_job_fixture.db_session
+
+    other_delivery_attempt = CorrectionAttempt(
+        municipio_id=municipio.id,
+        correction_job_id=job.uuid,
+        attempt_number=1,
+        provider="mock",
+        model="mock-v1",
+        prompt_version=1,
+        rubric_version=1,
+        outcome="success",
+    )
+    db_session.add(other_delivery_attempt)
+    await db_session.flush()
+    db_session.add(
+        CorrectionResult(
+            municipio_id=municipio.id,
+            correction_job_id=job.uuid,
+            correction_attempt_id=other_delivery_attempt.uuid,
+            scores={},
+            feedback="corrigido por outra entrega da fila",
+            sugestao_acionavel="",
+        )
+    )
+    await db_session.commit()
+
+    await correction_job_fixture.process(municipio, job)
+
+    results_query = select(CorrectionResult).where(CorrectionResult.correction_job_id == job.uuid)
+    results = (await db_session.execute(results_query)).scalars().all()
+    assert len(results) == 1
+
+    await db_session.refresh(job)
+    assert job.status == "done"
+
+
 class _RaisingProvider:
     model_id = "dublê"
 

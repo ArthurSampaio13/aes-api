@@ -5,6 +5,7 @@ from typing import Annotated
 
 from loguru import logger
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from taskiq import TaskiqDepends, TaskiqEvents, TaskiqState
 
@@ -141,7 +142,23 @@ async def process_correction_job(
                     feedback=response.structured.feedback,
                     sugestao_acionavel=response.structured.sugestao_acionavel,
                 )
-                db.add(result)
+                insert_result = (
+                    pg_insert(CorrectionResult)
+                    .values(
+                        uuid=result.uuid,
+                        municipio_id=result.municipio_id,
+                        correction_job_id=result.correction_job_id,
+                        correction_attempt_id=result.correction_attempt_id,
+                        scores=result.scores,
+                        feedback=result.feedback,
+                        sugestao_acionavel=result.sugestao_acionavel,
+                        requires_teacher_review=result.requires_teacher_review,
+                        created_at=result.created_at,
+                        updated_at=result.updated_at,
+                    )
+                    .on_conflict_do_nothing(index_elements=["correction_job_id"])
+                )
+                await db.execute(insert_result)
                 job.status = "done"
                 CORRECTION_JOBS_TOTAL.labels(status=job.status, provider=job.provider, model=job.model).inc()
                 await db.commit()
@@ -156,7 +173,8 @@ async def process_correction_job(
         await db.rollback()
         await set_tenant_context(db, municipio_id, is_superuser=False)
         job = (await db.execute(select(CorrectionJob).where(CorrectionJob.uuid == job_id))).scalar_one()
-        job.status = "failed"
+        if job.status != "done":
+            job.status = "failed"
         await db.commit()
         job_logger.exception("correction job failed with an unhandled error")
         raise
