@@ -35,9 +35,15 @@ log "health"
   || die "health não retornou healthy"
 
 log "models"
+# O catalogo vem do OpenRouter, entao fica vazio sem rede; a rota ainda precisa
+# responder 200 com uma lista, e o formato so e cobrado quando ha o que cobrar.
 curl -sf "${AUTH[@]}" "$API/api/v1/aes/models" \
-  | python3 -c 'import json,sys; d=json.load(sys.stdin); assert any(m["provider"]=="mock" for m in d), d' \
-  || die "provedor mock ausente em /aes/models"
+  | python3 -c 'import json,sys; d=json.load(sys.stdin); assert isinstance(d, list), d; assert not d or {"id","input_modalities","prompt_price","completion_price"} <= d[0].keys(), d[0]' \
+  || die "/aes/models nao devolveu o catalogo esperado"
+
+curl -sf "${AUTH[@]}" "$API/api/v1/aes/models?input_modality=image" \
+  | python3 -c 'import json,sys; d=json.load(sys.stdin); assert all("image" in m["input_modalities"] for m in d), d[:3]' \
+  || die "filtro input_modality=image deixou passar modelo sem imagem"
 
 log "essay prompt"
 PROMPT_UUID="$(curl -sf "${AUTH[@]}" -X POST "$API/api/v1/aes/essay-prompts" -d "{
