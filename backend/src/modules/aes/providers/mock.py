@@ -10,6 +10,8 @@ from .base import FIXED_CRITERIA, CorrectionCandidate, ProviderResponse
 
 
 class MockProvider:
+    model_id = "mock"
+
     async def correct(self, essay_text: str, prompt: str, params: dict[str, Any]) -> ProviderResponse:
         candidate_dict = {
             "scores": {c: {"nota": 3, "justificativa": f"Avaliação simulada para {c}."} for c in FIXED_CRITERIA},

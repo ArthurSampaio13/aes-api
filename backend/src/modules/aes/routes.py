@@ -2,6 +2,7 @@ from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastcrud import PaginatedListResponse, compute_offset, paginated_response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.auth.api_key_dependencies import get_current_principal
@@ -115,6 +116,24 @@ async def create_essay_prompt(
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
 
+@router.get("/essay-prompts", response_model=PaginatedListResponse[EssayPromptRead])
+async def list_essay_prompts(
+    db: Annotated[AsyncSession, Depends(get_aes_tenant_session(_essay_prompt_read))],
+    current_user: Annotated[dict[str, Any], Depends(_essay_prompt_read)],
+    aes_service: AesServiceDep,
+    page: int = 1,
+    items_per_page: int = 10,
+) -> dict[str, Any]:
+    try:
+        prompts = await aes_service.list_essay_prompts(db=db, skip=compute_offset(page, items_per_page), limit=items_per_page)
+        return paginated_response(crud_data=prompts, page=page, items_per_page=items_per_page)
+    except Exception as e:
+        http_exception = handle_exception(e)
+        if http_exception:
+            raise http_exception
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
+
 @router.get("/essay-prompts/{essay_prompt_uuid}", response_model=EssayPromptRead)
 @cache(key_prefix="aes_essay_prompt:{municipio_id}", resource_id_name="essay_prompt_uuid", expiration=3600)
 async def get_essay_prompt(
@@ -161,7 +180,7 @@ async def submit_image_batch(
     essay_prompt_uuid: Annotated[str, Form()],
     images: Annotated[list[UploadFile], File()],
     provider: Annotated[str, Form()] = "mock",
-    model: Annotated[str, Form()] = "mock-v1",
+    model: Annotated[str | None, Form()] = None,
 ) -> dict[str, Any]:
     try:
         image_data = [(await image.read(), image.content_type or "") for image in images]

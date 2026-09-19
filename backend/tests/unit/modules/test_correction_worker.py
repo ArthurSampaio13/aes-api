@@ -61,6 +61,8 @@ async def test_worker_redelivery_of_done_job_is_a_no_op(correction_job_fixture):
 
 
 class _RaisingProvider:
+    model_id = "dublê"
+
     async def correct(self, essay_text: str, prompt: str, params: dict[str, Any]):
         raise RuntimeError("provider exploded")
 

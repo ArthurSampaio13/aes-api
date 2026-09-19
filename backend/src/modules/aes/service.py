@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from typing import Any
 
+from fastcrud.types import GetMultiResponseDict
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +10,7 @@ from ..municipio.crud import crud_municipios
 from .crud import crud_correction_jobs, crud_correction_results, crud_essay_prompts, crud_prompt_templates, crud_rubrics
 from .models.correction import CorrectionAttempt, CorrectionJob
 from .models.submission import Batch, Submission
+from .providers.registry import resolve_model
 from .schemas.essay_prompt import EssayPromptCreate, EssayPromptCreateInternal, EssayPromptRead
 from .schemas.rubric import RubricCreate, RubricCreateInternal, RubricRead
 from .schemas.submission import BatchSubmitRequest, JobResultRead
@@ -56,6 +58,10 @@ class AesService:
             raise ResourceNotFoundError(f"EssayPrompt {essay_prompt_uuid} not found")
         return prompt
 
+    async def list_essay_prompts(self, db: AsyncSession, skip: int, limit: int) -> GetMultiResponseDict:
+        """O RLS já restringe ao município da sessão; não há filtro explícito aqui."""
+        return await crud_essay_prompts.get_multi(db=db, offset=skip, limit=limit, schema_to_select=EssayPromptRead)
+
     async def check_budget(self, municipio_id: int, db: AsyncSession) -> None:
         municipio = await crud_municipios.get(db=db, id=municipio_id)
         if not municipio or municipio["monthly_token_budget"] is None:
@@ -102,7 +108,7 @@ class AesService:
                 municipio_id=municipio_id,
                 submission_id=submission.uuid,
                 provider=data.provider,
-                model=data.model,
+                model=resolve_model(data.provider, data.model),
                 status="pending",
             )
             db.add(job)
@@ -115,6 +121,7 @@ class AesService:
             job_ids,
             municipio_id,
             data.provider,
+            data.model,
             prompt_template,
             rubric,
         )
@@ -126,6 +133,7 @@ class AesService:
         job_ids: list[Any],
         municipio_id: int,
         provider: str,
+        model: str | None,
         prompt_template: dict[str, Any] | None,
         rubric: dict[str, Any] | None,
     ) -> None:
@@ -134,6 +142,7 @@ class AesService:
                 job_id=str(job_id),
                 municipio_id=municipio_id,
                 provider_name=provider,
+                model_name=model,
                 prompt_text=prompt_template["template_text"],  # type: ignore[index]
                 prompt_version=prompt_template["version"],  # type: ignore[index]
                 rubric_version=rubric["version"],  # type: ignore[index]
@@ -144,7 +153,7 @@ class AesService:
         essay_prompt_uuid: str,
         images: list[tuple[bytes, str]],
         provider: str,
-        model: str,
+        model: str | None,
         user_id: int,
         municipio_id: int,
         db: AsyncSession,
@@ -191,7 +200,7 @@ class AesService:
                 municipio_id=municipio_id,
                 submission_id=submission.uuid,
                 provider=provider,
-                model=model,
+                model=resolve_model(provider, model),
                 status="pending",
             )
             db.add(job)
@@ -204,6 +213,7 @@ class AesService:
             job_ids,
             municipio_id,
             provider,
+            model,
             prompt_template,
             rubric,
         )

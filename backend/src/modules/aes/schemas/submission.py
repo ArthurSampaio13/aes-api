@@ -10,7 +10,7 @@ class BatchSubmitRequest(BaseModel):
     essay_prompt_uuid: UUID
     texts: Annotated[list[str], Field(min_length=1, max_length=500)]
     provider: str = "mock"
-    model: str = "mock-v1"
+    model: str | None = None
 
 
 class BatchSubmitResponse(BaseModel):

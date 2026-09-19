@@ -54,5 +54,7 @@ class ProviderResponse(BaseModel):
 
 
 class CorrectionProvider(Protocol):
+    model_id: str
+
     async def correct(self, essay_text: str, prompt: str, params: dict[str, Any]) -> ProviderResponse:
         ...

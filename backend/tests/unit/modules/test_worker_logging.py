@@ -10,6 +10,8 @@ ESSAY_TEXT = "A minha cidade tem um rio muito bonito que precisa de cuidado."
 
 
 class _LeakyValidationErrorProvider:
+    model_id = "dublê"
+
     async def correct(self, essay_text: str, prompt: str, params: dict[str, Any]) -> ProviderResponse:
         try:
             raise ValueError(f"model produced invalid output for essay: {essay_text}")
