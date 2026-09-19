@@ -71,3 +71,9 @@ class BudgetExceededError(DomainError):
     """Raised when a municipio's monthly token budget would be exceeded by a new submission."""
 
     pass
+
+
+class TranscriptionQualityError(DomainError):
+    """Raised when handwriting transcription stays below the quality floor after every retry."""
+
+    pass
