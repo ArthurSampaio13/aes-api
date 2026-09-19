@@ -119,6 +119,37 @@ async def test_worker_marks_job_failed_when_provider_raises(correction_job_fixtu
     assert refetched.status == "failed"
 
 
+class _RaisesAfterAnotherDeliveryAlreadyFinished:
+    model_id = "dublê"
+
+    def __init__(self, db_session, job_uuid: str):
+        self.db_session = db_session
+        self.job_uuid = job_uuid
+
+    async def correct(self, essay_text: str, prompt: str, params: dict[str, Any]):
+        concurrent_job = (
+            await self.db_session.execute(select(CorrectionJob).where(CorrectionJob.uuid == self.job_uuid))
+        ).scalar_one()
+        concurrent_job.status = "done"
+        await self.db_session.commit()
+        raise RuntimeError("provider exploded after another delivery already finished")
+
+
+@pytest.mark.asyncio
+async def test_worker_does_not_downgrade_a_job_another_delivery_already_finished(correction_job_fixture):
+    municipio, job = await correction_job_fixture.build()
+    job_uuid = job.uuid
+    db_session = correction_job_fixture.db_session
+
+    with pytest.raises(RuntimeError, match="provider exploded"):
+        await correction_job_fixture.process(
+            municipio, job, provider=_RaisesAfterAnotherDeliveryAlreadyFinished(db_session, str(job_uuid))
+        )
+
+    refetched = (await db_session.execute(select(CorrectionJob).where(CorrectionJob.uuid == job_uuid))).scalar_one()
+    assert refetched.status == "done"
+
+
 @pytest.mark.asyncio
 async def test_worker_persists_both_sides_of_the_exchange(correction_job_fixture):
     municipio, job = await correction_job_fixture.build()
