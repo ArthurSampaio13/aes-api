@@ -53,10 +53,17 @@ def test_split_prompt_for_caching_handles_text_after_placeholder():
     assert user_content == "texto depois"
 
 
-def test_settings_carregam_seed_e_cache_de_instrucoes(monkeypatch):
+@pytest.fixture
+def env_de_settings(monkeypatch):
+    """get_settings() é lru_cache de processo; sem limpar na saída, um teste vaza settings para os seguintes."""
     get_settings.cache_clear()
-    monkeypatch.setenv("AES_INFERENCE_SEED", "42")
-    monkeypatch.setenv("AES_PROMPT_CACHE_TTL", "1h")
+    yield monkeypatch
+    get_settings.cache_clear()
+
+
+def test_settings_carregam_seed_e_cache_de_instrucoes(env_de_settings):
+    env_de_settings.setenv("AES_INFERENCE_SEED", "42")
+    env_de_settings.setenv("AES_PROMPT_CACHE_TTL", "1h")
     get_settings.cache_clear()
 
     resultado = openrouter_model_settings(0.0)
@@ -66,8 +73,8 @@ def test_settings_carregam_seed_e_cache_de_instrucoes(monkeypatch):
     assert resultado["temperature"] == 0.0
 
 
-def test_sem_pin_configurado_o_provider_so_nega_coleta_de_dados(monkeypatch):
-    monkeypatch.setenv("AES_OPENROUTER_PROVIDER_ORDER", "")
+def test_sem_pin_configurado_o_provider_so_nega_coleta_de_dados(env_de_settings):
+    env_de_settings.setenv("AES_OPENROUTER_PROVIDER_ORDER", "")
     get_settings.cache_clear()
 
     resultado = openrouter_model_settings(0.0)
@@ -75,8 +82,8 @@ def test_sem_pin_configurado_o_provider_so_nega_coleta_de_dados(monkeypatch):
     assert resultado["openrouter_provider"] == {"data_collection": "deny"}
 
 
-def test_pin_configurado_desliga_fallback_para_a_rodada_ser_reproduzivel(monkeypatch):
-    monkeypatch.setenv("AES_OPENROUTER_PROVIDER_ORDER", "anthropic, deepinfra")
+def test_pin_configurado_desliga_fallback_para_a_rodada_ser_reproduzivel(env_de_settings):
+    env_de_settings.setenv("AES_OPENROUTER_PROVIDER_ORDER", "anthropic, deepinfra")
     get_settings.cache_clear()
 
     resultado = openrouter_model_settings(0.0)
@@ -86,6 +93,15 @@ def test_pin_configurado_desliga_fallback_para_a_rodada_ser_reproduzivel(monkeyp
         "order": ["anthropic", "deepinfra"],
         "allow_fallbacks": False,
     }
+
+
+def test_pin_com_segmentos_vazios_ignora_virgulas_duplicadas(env_de_settings):
+    env_de_settings.setenv("AES_OPENROUTER_PROVIDER_ORDER", "anthropic,,deepinfra,")
+    get_settings.cache_clear()
+
+    resultado = openrouter_model_settings(0.0)
+
+    assert resultado["openrouter_provider"]["order"] == ["anthropic", "deepinfra"]
 
 
 @pytest.mark.asyncio
