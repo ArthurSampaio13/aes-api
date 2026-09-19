@@ -2,11 +2,13 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastcrud.types import GetMultiResponseDict
+from loguru import logger
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..common.exceptions import BudgetExceededError, ResourceNotFoundError, ValidationError
 from ..municipio.crud import crud_municipios
+from .catalog import fetch_catalog
 from .crud import crud_correction_jobs, crud_correction_results, crud_essay_prompts, crud_prompt_templates, crud_rubrics
 from .models.correction import CorrectionAttempt, CorrectionJob
 from .models.submission import Batch, Submission
@@ -80,9 +82,21 @@ class AesService:
                 f"at or above the {municipio['monthly_token_budget']} token budget."
             )
 
+    async def ensure_model_is_known(self, provider: str, model: str | None, catalog_loader: Any = fetch_catalog) -> None:
+        if provider == "mock" or not model:
+            return
+        try:
+            catalogo = await catalog_loader()
+        except Exception:
+            logger.exception("failed to fetch the openrouter model catalog; letting the submission through")
+            return
+        if model not in catalogo:
+            raise ValidationError(f"Unknown model for {provider}: {model}")
+
     async def submit_batch(
         self, data: BatchSubmitRequest, user_id: int, municipio_id: int, db: AsyncSession
     ) -> tuple[Any, list[Any]]:
+        await self.ensure_model_is_known(data.provider, data.model)
         await self.check_budget(municipio_id, db)
         essay_prompt = await self.get_essay_prompt(str(data.essay_prompt_uuid), db)
         prompt_template = await crud_prompt_templates.get(db=db, id=essay_prompt["prompt_template_id"])
@@ -169,6 +183,7 @@ class AesService:
             if len(content) > _MAX_IMAGE_BYTES:
                 raise ValidationError(f"File exceeds the {_MAX_IMAGE_BYTES} byte limit")
 
+        await self.ensure_model_is_known(provider, model)
         await self.check_budget(municipio_id, db)
         essay_prompt = await self.get_essay_prompt(essay_prompt_uuid, db)
         prompt_template = await crud_prompt_templates.get(db=db, id=essay_prompt["prompt_template_id"])
