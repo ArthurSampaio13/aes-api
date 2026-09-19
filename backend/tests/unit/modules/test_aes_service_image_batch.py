@@ -81,7 +81,7 @@ async def test_submit_image_batch_creates_one_submission_and_job_per_image(db_se
 
 @pytest.mark.asyncio
 async def test_submit_image_batch_accepts_single_page_pdf(db_session, test_user):
-    """Redacao escaneada costuma sair em PDF de uma folha; o Textract sincrono le esse formato."""
+    """Redacao escaneada costuma sair em PDF de uma folha."""
     essay_prompt_uuid = await _seed_essay_prompt(db_session, test_user, "Pdf Batch Test")
     storage = ObjectStorage(bucket="test-bucket", client_factory=lambda: _FakeS3Client())
 

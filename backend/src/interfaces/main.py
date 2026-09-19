@@ -50,7 +50,7 @@ app = create_application(
     A rubric-based, traceable essay-correction backend for Brazilian Ensino Fundamental, built as a TCC artifact.
 
     * Asynchronous batch correction jobs with configurable, versioned rubrics and prompts
-    * LLM provider abstraction (OpenRouter, Amazon Bedrock) with schema-validated structured output
+    * OpenRouter-backed model selection per job with schema-validated structured output
     * Multi-tenant per-município data isolation via PostgreSQL RLS
     """,
     version="0.18.0",

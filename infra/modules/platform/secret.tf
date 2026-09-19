@@ -36,8 +36,7 @@ resource "kubernetes_secret" "app_env" {
 
     AWS_REGION = var.aws_region
 
-    # O provider ignora o campo `model` da requisicao e usa esta setting; o
-    # default do codigo aponta para um modelo que o OpenRouter ja removeu.
+    # Default quando a requisicao nao traz `model`.
     OPENROUTER_MODEL = var.openrouter_model
 
     # Usado quando ocr_provider = "vision": manuscrito em portugues precisa de

@@ -233,7 +233,7 @@ instead of burning a queued job on a call that was never going to work. If the
 catalogue is unreachable the model is accepted rather than blocking submissions
 on a third party being down.
 
-Omitting `model` falls back to `AES_DEFAULT_MODEL`.
+Omitting `model` falls back to `OPENROUTER_MODEL` (tofu variable `openrouter_model`).
 
 ### Which models are available
 

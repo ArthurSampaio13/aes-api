@@ -21,11 +21,6 @@ from .worker import run_correction_job
 
 _MAX_IMAGES_PER_BATCH = 50
 _MAX_IMAGE_BYTES = 10 * 1024 * 1024
-# PDF entra junto porque redacao escaneada costuma chegar nesse formato e o
-# DetectDocumentText sincrono do Textract le PDF de uma pagina. Com mais de uma
-# pagina ele recusa com UnsupportedDocumentException, e o job falha registrando
-# esse erro — nao validamos a contagem aqui para nao carregar um parser de PDF
-# so por isso.
 _ALLOWED_CONTENT_TYPES = {"image/jpeg": "jpg", "image/png": "png", "application/pdf": "pdf"}
 
 

@@ -32,7 +32,7 @@ def _municipio_id_from_principal(
     principal_dependency: Callable[..., Awaitable[dict[str, Any]]],
 ) -> Callable[..., Awaitable[int]]:
     """Extract `municipio_id` as its own bare dependency, for the `@cache` decorator's `{municipio_id}` key
-    interpolation (Task 2b) — must be passed the same `principal_dependency` object used for the route's `db`/
+    interpolation — must be passed the same `principal_dependency` object used for the route's `db` and
     `current_user` dependencies so FastAPI's per-request cache resolves it only once, not three times."""
 
     async def _extract(current_user: Annotated[dict[str, Any], Depends(principal_dependency)]) -> int:

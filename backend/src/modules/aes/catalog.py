@@ -1,7 +1,7 @@
 """Catálogo de modelos do OpenRouter, usado para listar e para validar o job.
 
 Cacheado em memória do processo (por pod) com um TTL simples: um dict cacheado mais o instante em que foi buscado. Isso
-evita que cada submissão de job (Task 5) ou cada GET /models vire um round-trip à OpenRouter.
+evita que cada submissão de job ou cada GET /models vire um round-trip à OpenRouter.
 """
 
 import time
