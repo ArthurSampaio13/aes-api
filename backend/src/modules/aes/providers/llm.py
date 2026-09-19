@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic_ai import Agent
 
-from ._pydantic_ai_support import resolve_agent_model, run_agent
+from ._pydantic_ai_support import openrouter_model_settings, resolve_agent_model, run_agent
 from .base import CorrectionCandidate, ProviderResponse
 
 
@@ -18,6 +18,6 @@ class LLMCorrectionProvider:
             self.agent,
             essay_text=essay_text,
             prompt=prompt,
-            model_settings={"temperature": params.get("temperature", 0.0)},
+            model_settings=openrouter_model_settings(params.get("temperature", 0.0)),
             model_id=self.model_id,
         )

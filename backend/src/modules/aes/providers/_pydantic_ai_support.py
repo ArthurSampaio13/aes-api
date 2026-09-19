@@ -33,6 +33,11 @@ def resolve_agent_model(model_id: str) -> Model:
     return infer_model(model_id)
 
 
+def openrouter_model_settings(temperature: float) -> dict[str, Any]:
+    """A folha digitalizada traz nome do aluno; nenhum provider que retenha dado deve recebê-la."""
+    return {"temperature": temperature, "openrouter_provider": {"data_collection": "deny"}}
+
+
 def extract_raw_output_text(messages: Sequence[ModelMessage]) -> str:
     for message in reversed(messages):
         if isinstance(message, ModelResponse):

@@ -64,6 +64,7 @@ async def test_prompt_prefix_reaches_instructions_and_cache_tokens_fold_into_tok
     def capture_call(messages: list, info: AgentInfo) -> ModelResponse:
         captured["instructions"] = info.instructions
         captured["user_content"] = messages[-1].parts[-1].content
+        captured["settings"] = info.model_settings
         return ModelResponse(
             parts=[
                 ToolCallPart(
@@ -81,5 +82,6 @@ async def test_prompt_prefix_reaches_instructions_and_cache_tokens_fold_into_tok
 
     assert captured["instructions"] == "Corrija:"
     assert captured["user_content"] == "texto do aluno"
+    assert captured["settings"] == {"temperature": 0.1, "openrouter_provider": {"data_collection": "deny"}}
     assert response.tokens_in == 210
     assert response.tokens_out == 50
