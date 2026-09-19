@@ -101,7 +101,7 @@ async def process_correction_job(
                 correction_job_id=job.uuid,
                 attempt_number=attempt_number,
                 provider=job.provider,
-                model=provider.model_id,
+                model=job.model,
                 prompt_version=prompt_version,
                 rubric_version=rubric_version,
                 inference_params={"temperature": 0.0},

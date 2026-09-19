@@ -87,17 +87,12 @@ async def list_models(
     fixed = {
         "mock": ("mock", True),
         "openrouter": (settings.OPENROUTER_MODEL, bool(settings.OPENROUTER_API_KEY)),
-        "bedrock": (settings.BEDROCK_MODEL_ID, True),
     }
-    entries: list[dict[str, Any]] = []
-    for name in PROVIDER_FACTORIES:
-        if name in fixed:
-            model, available = fixed[name]
-        else:
-            model = getattr(settings, f"{name.upper()}_MODEL")
-            available = bool(getattr(settings, f"{name.upper()}_API_KEY", None))
-        entries.append({"provider": name, "model": model, "available": available})
-    return entries
+    return [
+        {"provider": name, "model": model, "available": available}
+        for name, (model, available) in fixed.items()
+        if name in PROVIDER_FACTORIES
+    ]
 
 
 @router.post("/essay-prompts", status_code=201, response_model=EssayPromptRead)

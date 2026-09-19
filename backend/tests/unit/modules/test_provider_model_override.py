@@ -13,27 +13,18 @@ from src.modules.aes.providers.registry import get_provider
 OUTRO_MODELO = "deepseek/deepseek-v4.1-flash"
 
 
+@pytest.fixture(autouse=True)
+def _set_openrouter_api_key_for_infer_model(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-for-provider-tests")
+
+
 def test_openrouter_uses_the_model_from_the_job() -> None:
-    assert get_provider("openrouter", OUTRO_MODELO).model_id == OUTRO_MODELO
+    assert get_provider("openrouter", OUTRO_MODELO).model_id == f"openrouter:{OUTRO_MODELO}"
 
 
-def test_bedrock_uses_the_model_from_the_job() -> None:
-    assert get_provider("bedrock", OUTRO_MODELO).model_id == OUTRO_MODELO
-
-
-def test_gateway_uses_the_model_from_the_job() -> None:
-    assert get_provider("groq", OUTRO_MODELO).model_id == OUTRO_MODELO
-
-
-@pytest.mark.parametrize("name", ["openrouter", "bedrock", "groq"])
-def test_omitting_the_model_falls_back_to_the_configured_default(name: str) -> None:
+def test_omitting_the_model_falls_back_to_the_configured_default() -> None:
     settings = get_settings()
-    esperado = {
-        "openrouter": settings.OPENROUTER_MODEL,
-        "bedrock": settings.BEDROCK_MODEL_ID,
-        "groq": settings.GROQ_MODEL,
-    }[name]
-    assert get_provider(name).model_id == esperado
+    assert get_provider("openrouter").model_id == f"openrouter:{settings.OPENROUTER_MODEL}"
 
 
 def test_mock_ignores_the_model() -> None:

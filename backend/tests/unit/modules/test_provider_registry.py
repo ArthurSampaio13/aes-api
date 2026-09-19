@@ -1,56 +1,54 @@
 import pytest
 
-from src.modules.aes.providers.bedrock import BedrockProvider
+from src.modules.aes.providers.llm import LLMCorrectionProvider
 from src.modules.aes.providers.mock import MockProvider
 from src.modules.aes.providers.mock_ocr import MockOCRProvider
-from src.modules.aes.providers.openai_compatible import GATEWAY_BASE_URLS, OpenAICompatibleProvider
-from src.modules.aes.providers.openrouter import OpenRouterProvider
-from src.modules.aes.providers.registry import PROVIDER_FACTORIES, get_ocr_provider, get_provider
-from src.modules.aes.providers.textract import TextractProvider
+from src.modules.aes.providers.registry import agent_model_id, get_ocr_provider, get_provider, resolve_model
+from src.modules.aes.providers.vision import VisionOCRProvider
 
 
-def test_get_provider_returns_mock_for_mock_name():
-    provider = get_provider("mock")
-    assert isinstance(provider, MockProvider)
+@pytest.fixture(autouse=True)
+def _set_openrouter_api_key_for_infer_model(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-for-provider-tests")
 
 
-def test_get_provider_returns_openrouter_for_openrouter_name():
-    provider = get_provider("openrouter")
-    assert isinstance(provider, OpenRouterProvider)
+def test_resolve_model_stays_bare():
+    assert resolve_model("openrouter", "deepseek/deepseek-v4.1-flash") == "deepseek/deepseek-v4.1-flash"
 
 
-def test_get_provider_returns_bedrock_for_bedrock_name():
-    provider = get_provider("bedrock")
-    assert isinstance(provider, BedrockProvider)
+def test_resolve_model_leaves_mock_alone():
+    assert resolve_model("mock", None) == "mock"
 
 
-def test_get_provider_raises_key_error_for_unknown_name():
+def test_agent_model_id_prefixes_with_the_router():
+    assert agent_model_id("openrouter", "deepseek/deepseek-v4.1-flash") == "openrouter:deepseek/deepseek-v4.1-flash"
+
+
+def test_openrouter_builds_the_unified_provider():
+    provider = get_provider("openrouter", "deepseek/deepseek-v4.1-flash")
+    assert isinstance(provider, LLMCorrectionProvider)
+    assert provider.model_id == "openrouter:deepseek/deepseek-v4.1-flash"
+
+
+def test_mock_stays_offline():
+    assert isinstance(get_provider("mock"), MockProvider)
+
+
+def test_vision_ocr_is_registered():
+    assert isinstance(get_ocr_provider("vision"), VisionOCRProvider)
+
+
+def test_mock_ocr_stays_offline():
+    assert isinstance(get_ocr_provider("mock"), MockOCRProvider)
+
+
+@pytest.mark.parametrize("removido", ["bedrock", "groq", "cerebras", "github", "gemini"])
+def test_retired_providers_are_gone(removido: str):
     with pytest.raises(KeyError):
-        get_provider("does-not-exist")
+        get_provider(removido)
 
 
-def test_get_ocr_provider_returns_mock_for_mock_name():
-    provider = get_ocr_provider("mock")
-    assert isinstance(provider, MockOCRProvider)
-
-
-def test_get_ocr_provider_returns_textract_for_textract_name():
-    provider = get_ocr_provider("textract")
-    assert isinstance(provider, TextractProvider)
-
-
-def test_get_ocr_provider_raises_key_error_for_unknown_name():
+@pytest.mark.parametrize("removido", ["textract", "bedrock_vision"])
+def test_retired_ocr_providers_are_gone(removido: str):
     with pytest.raises(KeyError):
-        get_ocr_provider("does-not-exist")
-
-
-def test_registry_exposes_every_gateway_preset():
-    for name in GATEWAY_BASE_URLS:
-        assert name in PROVIDER_FACTORIES, name
-
-
-def test_gateway_providers_are_built_with_their_preset_base_url():
-    for name, base_url in GATEWAY_BASE_URLS.items():
-        provider = get_provider(name)
-        assert isinstance(provider, OpenAICompatibleProvider)
-        assert provider.base_url == base_url
+        get_ocr_provider(removido)

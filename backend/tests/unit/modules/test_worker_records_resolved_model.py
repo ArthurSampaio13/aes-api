@@ -1,19 +1,39 @@
-"""A tentativa registra o modelo que rodou, não o que a requisição pediu.
+"""A tentativa registra o modelo do job, não o model_id do provider.
 
-Quando o job omite o modelo, quem decide é o default do provider. Gravar
-`job.model` nesse caso registraria vazio — ou pior, um valor que ninguém usou.
+`provider.model_id` é o id prefixado que a pydantic-ai resolve (`openrouter:<modelo>`); `job.model` é o id bare
+gravado na submissão. Gravar o do provider faria `CorrectionAttempt.model` divergir de `CorrectionJob.model` para o
+mesmo job.
 """
 
 import pytest
+from sqlalchemy import select
 
-from src.modules.aes.providers.registry import PROVIDER_FACTORIES, get_provider
+from src.modules.aes.models.correction import CorrectionAttempt
+from src.modules.aes.providers.base import FIXED_CRITERIA, CorrectionCandidate, ProviderResponse
+
+_CANDIDATE = CorrectionCandidate(
+    scores={c: {"nota": 7, "justificativa": "ok"} for c in FIXED_CRITERIA},
+    feedback="ok",
+    sugestao_acionavel="ok",
+)
 
 
-@pytest.mark.parametrize("nome", sorted(PROVIDER_FACTORIES))
-def test_every_provider_reports_the_model_it_resolved(nome: str) -> None:
-    assert get_provider(nome).model_id, f"{nome} não expõe model_id"
+class _FakeProvider:
+    model_id = "openrouter:a-different-model"
+
+    async def correct(self, essay_text: str, prompt: str, params: dict) -> ProviderResponse:
+        return ProviderResponse(raw_text="ok", structured=_CANDIDATE, tokens_in=1, tokens_out=1, latency_ms=1)
 
 
-@pytest.mark.parametrize("nome", ["openrouter", "bedrock", "groq"])
-def test_the_reported_model_is_the_one_asked_for(nome: str) -> None:
-    assert get_provider(nome, "deepseek/deepseek-v4.1-flash").model_id == "deepseek/deepseek-v4.1-flash"
+@pytest.mark.asyncio
+async def test_attempt_records_the_job_model_not_the_provider_model_id(correction_job_fixture):
+    municipio, job = await correction_job_fixture.build()
+
+    await correction_job_fixture.process(municipio, job, provider=_FakeProvider())
+
+    db_session = correction_job_fixture.db_session
+    attempts_query = select(CorrectionAttempt).where(CorrectionAttempt.correction_job_id == job.uuid)
+    attempt = (await db_session.execute(attempts_query)).scalar_one()
+
+    assert attempt.model == job.model == "mock-v1"
+    assert attempt.model != _FakeProvider.model_id
