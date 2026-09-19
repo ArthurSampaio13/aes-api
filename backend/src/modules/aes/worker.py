@@ -24,7 +24,7 @@ from .metrics import (
 from .models.correction import CorrectionAttempt, CorrectionJob, CorrectionResult
 from .models.submission import Submission
 from .providers._pydantic_ai_support import openrouter_model_settings
-from .providers.base import CorrectionProvider
+from .providers.base import CorrectionProvider, ProviderResponse
 from .providers.ocr_base import OCRProvider
 from .providers.registry import get_ocr_provider, get_provider
 from .storage import ObjectStorage, get_object_storage
@@ -74,7 +74,7 @@ async def _run_attempt(
     object_storage: ObjectStorage,
     db: AsyncSession,
     job_logger: Any,
-) -> CorrectionAttempt:
+) -> tuple[CorrectionAttempt, ProviderResponse]:
     inference_params = {"temperature": 0.0} if job.provider == "mock" else openrouter_model_settings(0.0)
     response = await provider.correct(essay_text=essay_text, prompt=prompt_text, params=inference_params)
 
@@ -142,38 +142,7 @@ async def _run_attempt(
     for evento in response.guardrail_events:
         GUARDRAIL_VERDICTS_TOTAL.labels(guard=evento["guard"], veredito=evento["veredito"]).inc()
 
-    if response.structured is not None:
-        result = CorrectionResult(
-            municipio_id=job.municipio_id,
-            correction_job_id=job.uuid,
-            correction_attempt_id=attempt.uuid,
-            scores=response.structured.scores.model_dump(),
-            feedback=response.structured.feedback,
-            sugestao_acionavel=response.structured.sugestao_acionavel,
-        )
-        insert_result = (
-            pg_insert(CorrectionResult)
-            .values(
-                uuid=result.uuid,
-                municipio_id=result.municipio_id,
-                correction_job_id=result.correction_job_id,
-                correction_attempt_id=result.correction_attempt_id,
-                scores=result.scores,
-                feedback=result.feedback,
-                sugestao_acionavel=result.sugestao_acionavel,
-                requires_teacher_review=result.requires_teacher_review,
-                created_at=result.created_at,
-                updated_at=result.updated_at,
-            )
-            .on_conflict_do_nothing(index_elements=["correction_job_id"])
-        )
-        await db.execute(insert_result)
-        job.status = "done"
-        CORRECTION_JOBS_TOTAL.labels(status=job.status, provider=job.provider, model=job.model).inc()
-        await db.commit()
-        job_logger.info("correction job done")
-
-    return attempt
+    return attempt, response
 
 
 async def process_correction_job(
@@ -215,7 +184,7 @@ async def process_correction_job(
         assert essay_text is not None
 
         for attempt_number in range(1, job.max_attempts + 1):
-            attempt = await _run_attempt(
+            attempt, response = await _run_attempt(
                 job,
                 attempt_number,
                 essay_text,
@@ -227,7 +196,36 @@ async def process_correction_job(
                 db,
                 job_logger,
             )
-            if attempt.outcome == "success":
+            if response.structured is not None:
+                result = CorrectionResult(
+                    municipio_id=job.municipio_id,
+                    correction_job_id=job.uuid,
+                    correction_attempt_id=attempt.uuid,
+                    scores=response.structured.scores.model_dump(),
+                    feedback=response.structured.feedback,
+                    sugestao_acionavel=response.structured.sugestao_acionavel,
+                )
+                insert_result = (
+                    pg_insert(CorrectionResult)
+                    .values(
+                        uuid=result.uuid,
+                        municipio_id=result.municipio_id,
+                        correction_job_id=result.correction_job_id,
+                        correction_attempt_id=result.correction_attempt_id,
+                        scores=result.scores,
+                        feedback=result.feedback,
+                        sugestao_acionavel=result.sugestao_acionavel,
+                        requires_teacher_review=result.requires_teacher_review,
+                        created_at=result.created_at,
+                        updated_at=result.updated_at,
+                    )
+                    .on_conflict_do_nothing(index_elements=["correction_job_id"])
+                )
+                await db.execute(insert_result)
+                job.status = "done"
+                CORRECTION_JOBS_TOTAL.labels(status=job.status, provider=job.provider, model=job.model).inc()
+                await db.commit()
+                job_logger.info("correction job done")
                 return
 
         job.status = "failed"
