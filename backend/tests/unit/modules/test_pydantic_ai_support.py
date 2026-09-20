@@ -12,6 +12,7 @@ from pydantic_ai_harness import GuardrailResult, OutputGuardrail
 
 from src.infrastructure.config.settings import get_settings
 from src.modules.aes.providers._pydantic_ai_support import (
+    custo_cobrado,
     extract_raw_output_text,
     openrouter_model_settings,
     resolve_agent_model,
@@ -265,3 +266,63 @@ async def test_falha_por_exaustao_do_guardrail_ainda_reporta_tokens_e_custo_reai
     assert resposta.tokens_out == 600
     assert resposta.cost_usd == Decimal("0.03")
     assert resposta.served_provider == "anthropic/claude-3.5-sonnet"
+
+
+@pytest.mark.asyncio
+async def test_cost_usd_prefere_o_valor_cobrado_pelo_openrouter_a_estimativa():
+    """O OpenRouter devolve em `provider_details['cost']` o que de fato cobrou.
+
+    O `genai-prices` nao precifica todo modelo — para `deepseek-v4.1-flash` ele devolve None, e a coluna de custo ficava
+    vazia numa tabela cujo proposito e analise de custo.
+    """
+
+    def responder(messages: list, info: AgentInfo) -> ModelResponse:
+        return _resposta_do_modelo(
+            RequestUsage(input_tokens=10, output_tokens=5, cost=Decimal("0.99")),
+            provider_details={"downstream_provider": "DeepInfra", "cost": 0.0008936032},
+        )
+
+    resposta = await run_agent(
+        _agente_de_teste(responder),
+        essay_text="texto",
+        prompt="RUBRICA {essay_text}",
+        model_settings={},
+        model_id="openrouter:modelo/teste",
+    )
+
+    assert resposta.cost_usd == Decimal("0.0008936032")
+
+
+@pytest.mark.asyncio
+async def test_cost_usd_soma_o_cobrado_de_cada_chamada_quando_houve_retry():
+    """Cada resposta do modelo tem seu proprio custo cobrado; o atributo do attempt e o total."""
+    chamadas: list = []
+
+    def responder(messages: list, info: AgentInfo) -> ModelResponse:
+        chamadas.append(messages)
+        return _resposta_do_modelo(
+            RequestUsage(input_tokens=10, output_tokens=5),
+            provider_details={"cost": 0.001},
+        )
+
+    exchange = [responder([], None), responder([], None), responder([], None)]
+    assert custo_cobrado(exchange) == Decimal("0.003")
+
+
+@pytest.mark.asyncio
+async def test_cost_usd_cai_para_a_estimativa_quando_o_provedor_nao_informa():
+    def responder(messages: list, info: AgentInfo) -> ModelResponse:
+        return _resposta_do_modelo(
+            RequestUsage(input_tokens=10, output_tokens=5, cost=Decimal("0.42")),
+            provider_details={"downstream_provider": "DeepInfra"},
+        )
+
+    resposta = await run_agent(
+        _agente_de_teste(responder),
+        essay_text="texto",
+        prompt="RUBRICA {essay_text}",
+        model_settings={},
+        model_id="openrouter:modelo/teste",
+    )
+
+    assert resposta.cost_usd == Decimal("0.42")

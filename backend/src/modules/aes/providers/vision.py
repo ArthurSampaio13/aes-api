@@ -17,6 +17,7 @@ from ....infrastructure.config.settings import get_settings
 from ...common.exceptions import TranscriptionQualityError
 from ._pydantic_ai_support import (
     contar_respostas_do_modelo,
+    custo_cobrado,
     dump_exchange,
     openrouter_model_settings,
     provedor_servido,
@@ -83,7 +84,7 @@ class VisionOCRProvider:
                     "tokens_out": uso.tokens_out,
                     "cache_read_tokens": uso.cache_read_tokens,
                     "cache_write_tokens": uso.cache_write_tokens,
-                    "cost_usd": str(uso.cost_usd) if uso.cost_usd is not None else None,
+                    "cost_usd": str(cobrado) if (cobrado := custo_cobrado(exchange) or uso.cost_usd) is not None else None,
                     "served_provider": provedor_servido(exchange),
                     "latency_ms": int((time.monotonic() - started_at) * 1000),
                     "model_retries": max(contar_respostas_do_modelo(exchange) - 1, 0),
@@ -111,7 +112,7 @@ class VisionOCRProvider:
                 "tokens_out": usage.output_tokens,
                 "cache_read_tokens": usage.cache_read_tokens,
                 "cache_write_tokens": usage.cache_write_tokens,
-                "cost_usd": str(usage.cost) if usage.cost is not None else None,
+                "cost_usd": str(cobrado) if (cobrado := custo_cobrado(exchange) or usage.cost) is not None else None,
                 "served_provider": provedor_servido(exchange),
                 "latency_ms": int((time.monotonic() - started_at) * 1000),
                 "model_retries": max(contar_respostas_do_modelo(exchange) - 1, 0),

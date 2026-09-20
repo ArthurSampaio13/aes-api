@@ -126,6 +126,24 @@ def somar_uso_do_modelo(messages: Sequence[ModelMessage]) -> UsoAcumulado:
     return uso
 
 
+def custo_cobrado(messages: Sequence[ModelMessage]) -> Decimal | None:
+    """O que o OpenRouter de fato cobrou, somado sobre as respostas do exchange.
+
+    `provider_details['cost']` é o valor cobrado; `usage.cost`, do genai-prices, é estimativa e fica `None` para
+    modelo que ele não precifica — `deepseek-v4.1-flash` é um deles, e a coluna de custo saía vazia numa tabela cujo
+    propósito é análise de custo. Cada resposta traz o próprio custo, então um run com retry soma todas.
+    """
+    total: Decimal | None = None
+    for message in messages:
+        if not isinstance(message, ModelResponse) or not message.provider_details:
+            continue
+        cobrado = message.provider_details.get("cost")
+        if cobrado is None:
+            continue
+        total = (total or Decimal(0)) + Decimal(str(cobrado))
+    return total
+
+
 def provedor_servido(messages: Sequence[ModelMessage]) -> str | None:
     """O backend que de fato serviu a chamada.
 
@@ -178,7 +196,7 @@ async def run_agent(
                 tokens_out=uso.tokens_out,
                 cache_read_tokens=uso.cache_read_tokens,
                 cache_write_tokens=uso.cache_write_tokens,
-                cost_usd=uso.cost_usd,
+                cost_usd=cobrado if (cobrado := custo_cobrado(exchange)) is not None else uso.cost_usd,
                 served_provider=provedor_servido(exchange),
                 latency_ms=int((time.monotonic() - started_at) * 1000),
                 validation_error=str(exc),
@@ -198,7 +216,7 @@ async def run_agent(
             tokens_out=usage.output_tokens,
             cache_read_tokens=usage.cache_read_tokens,
             cache_write_tokens=usage.cache_write_tokens,
-            cost_usd=usage.cost,
+            cost_usd=cobrado if (cobrado := custo_cobrado(exchange)) is not None else usage.cost,
             served_provider=provedor_servido(exchange),
             guardrail_events=eventos,
             model_retries=max(contar_respostas_do_modelo(exchange) - 1, 0),
