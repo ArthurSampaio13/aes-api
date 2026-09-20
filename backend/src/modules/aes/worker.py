@@ -12,7 +12,6 @@ from ...infrastructure.config.settings import get_settings
 from ...infrastructure.database.tenancy import set_tenant_context
 from ...infrastructure.taskiq.brokers import default_broker
 from ...infrastructure.taskiq.deps import get_db_session
-from ..common.exceptions import TranscriptionQualityError
 from .metrics import (
     CORRECTION_ATTEMPTS_TOTAL,
     CORRECTION_CACHE_TOKENS,
@@ -44,6 +43,32 @@ async def _store_raw_exchange(meta: dict[str, Any], submission: Submission, obje
     return meta
 
 
+async def _registrar_falha_de_transcricao(
+    exc: Exception,
+    submission: Submission,
+    object_storage: ObjectStorage,
+    db: AsyncSession,
+    job_logger: Any,
+) -> None:
+    """Guarda o que a transcrição já gastou antes de morrer, para a falha não sair de graça do manifesto.
+
+    Vale para falha de qualidade e para falha de infraestrutura: um 504 do provedor paga
+    as mesmas chamadas. A gravação é best-effort de propósito — um storage fora do ar não
+    pode trocar a causa real do job por um erro de escrita de rastro.
+    """
+    parcial = getattr(exc, "partial_meta", None)
+    if parcial is None:
+        return
+    try:
+        meta = await _store_raw_exchange(dict(parcial), submission, object_storage)
+        meta["error"] = str(exc)
+        submission.transcription_meta = meta
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        job_logger.exception("falha ao gravar o rastro da transcricao")
+
+
 async def _transcribe_if_needed(
     submission: Submission,
     ocr_provider: OCRProvider,
@@ -58,11 +83,8 @@ async def _transcribe_if_needed(
     image_bytes = await object_storage.get(submission.original_ref)
     try:
         ocr_result = await ocr_provider.extract_text(image_bytes=image_bytes)
-    except TranscriptionQualityError as exc:
-        failed_meta = await _store_raw_exchange(dict(exc.partial_meta), submission, object_storage)
-        failed_meta["error"] = str(exc)
-        submission.transcription_meta = failed_meta
-        await db.commit()
+    except Exception as exc:
+        await _registrar_falha_de_transcricao(exc, submission, object_storage, db, job_logger)
         raise
 
     meta = await _store_raw_exchange(dict(ocr_result.meta), submission, object_storage)

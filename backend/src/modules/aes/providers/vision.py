@@ -75,7 +75,7 @@ class VisionOCRProvider:
                     model_settings=openrouter_model_settings(0.0),
                     deps=eventos,
                 )
-            except UnexpectedModelBehavior as exc:
+            except Exception as exc:
                 uso = somar_uso_do_modelo(exchange)
                 partial_meta = {
                     "model": self.model_id,
@@ -90,11 +90,14 @@ class VisionOCRProvider:
                     "guardrail_events": eventos,
                     "raw_exchange": dump_exchange(exchange),
                 }
-                raise TranscriptionQualityError(
-                    f"Transcrição insuficiente após {get_settings().AES_OCR_MAX_RETRIES} tentativas; "
-                    "a folha requer digitação manual.",
-                    partial_meta=partial_meta,
-                ) from exc
+                if isinstance(exc, UnexpectedModelBehavior):
+                    raise TranscriptionQualityError(
+                        f"Transcrição insuficiente após {get_settings().AES_OCR_MAX_RETRIES} tentativas; "
+                        "a folha requer digitação manual.",
+                        partial_meta=partial_meta,
+                    ) from exc
+                exc.partial_meta = partial_meta  # type: ignore[attr-defined]
+                raise
 
         texto = result.output.texto.strip()
         usage = result.usage

@@ -187,3 +187,27 @@ async def test_meta_da_transcricao_registra_modelo_tokens_e_retries():
     assert resultado.meta["model"] == "openrouter:modelo/teste"
     assert resultado.meta["model_retries"] == 0
     assert resultado.meta["palavras"] == 60
+
+
+@pytest.mark.asyncio
+async def test_falha_de_infraestrutura_carrega_o_uso_parcial_e_preserva_a_excecao():
+    """Um 504 do provedor no meio da transcrição não é falha de qualidade.
+
+    A exceção original precisa chegar intacta ao worker, mas levando o que já foi
+    gasto: sem isso o job falha sem deixar rastro nenhum do que foi pago.
+    """
+
+    def responder(messages: list, info: AgentInfo) -> ModelResponse:
+        raise RuntimeError("status_code: 504, body: Timed out parsing the file")
+
+    provider = VisionOCRProvider(model_id="openrouter:modelo/teste")
+
+    with provider.agent.override(model=FunctionModel(responder)):
+        with pytest.raises(RuntimeError) as capturado:
+            await provider.extract_text(image_bytes=PNG_BYTES)
+
+    meta = getattr(capturado.value, "partial_meta", None)
+    assert meta is not None
+    assert meta["model"] == "openrouter:modelo/teste"
+    assert "latency_ms" in meta
+    assert meta["guardrail_events"] == []

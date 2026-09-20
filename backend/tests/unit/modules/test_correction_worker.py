@@ -372,3 +372,63 @@ async def test_transcricao_deixa_rastro_na_submissao(correction_job_fixture):
     submission = (await db_session.execute(select(Submission).where(Submission.uuid == job.submission_id))).scalars().one()
     assert submission.transcription_meta["model"] == "mock"
     assert submission.raw_text
+
+
+@pytest.mark.asyncio
+async def test_falha_de_infraestrutura_na_transcricao_tambem_deixa_rastro(correction_job_fixture):
+    """Um 504 do provedor gasta chamadas iguais a uma falha de qualidade.
+
+    A cobertura anterior so alcancava TranscriptionQualityError, entao o 504 real observado em producao gravou
+    `transcription_meta = null` e o manifesto perdeu o que foi pago.
+    """
+    municipio, job = await correction_job_fixture.build(
+        input_type="image", raw_text=None, original_ref="submissions/rastro-infra/original.png"
+    )
+    await correction_job_fixture.storage.put(
+        key="submissions/rastro-infra/original.png", content=b"\x89PNG falso", content_type="image/png"
+    )
+
+    class OCRQueEstoura:
+        async def extract_text(self, image_bytes: bytes) -> OCRResult:
+            exc = RuntimeError("status_code: 504, body: Timed out parsing the file")
+            exc.partial_meta = {"model": "openrouter:modelo/teste", "tokens_in": 800, "tokens_out": 0}
+            raise exc
+
+    with pytest.raises(RuntimeError, match="504"):
+        await correction_job_fixture.process(municipio, job, ocr_provider=OCRQueEstoura())
+
+    db_session = correction_job_fixture.db_session
+    await db_session.refresh(job)
+    assert job.status == "failed"
+
+    submission = (await db_session.execute(select(Submission).where(Submission.uuid == job.submission_id))).scalar_one()
+    assert "504" in submission.transcription_meta["error"]
+    assert submission.transcription_meta["tokens_in"] == 800
+
+
+@pytest.mark.asyncio
+async def test_falha_ao_gravar_o_rastro_nao_mascara_a_excecao_original(correction_job_fixture):
+    """O rastro e best-effort: um S3 fora do ar nao pode trocar a causa real por um erro de storage."""
+    municipio, job = await correction_job_fixture.build(
+        input_type="image", raw_text=None, original_ref="submissions/rastro-mascara/original.png"
+    )
+    await correction_job_fixture.storage.put(
+        key="submissions/rastro-mascara/original.png", content=b"\x89PNG falso", content_type="image/png"
+    )
+
+    class OCRQueEstoura:
+        async def extract_text(self, image_bytes: bytes) -> OCRResult:
+            exc = RuntimeError("erro original do provedor")
+            exc.partial_meta = {"model": "x", "raw_exchange": "conteudo"}
+            raise exc
+
+    class StorageQueFalhaNoPut(type(correction_job_fixture.storage)):
+        async def put(self, key: str, content: bytes, content_type: str) -> str:
+            if "transcriptions/" in key:
+                raise OSError("s3 fora do ar")
+            return await super().put(key=key, content=content, content_type=content_type)
+
+    quebrado = StorageQueFalhaNoPut(bucket="test-bucket", client_factory=correction_job_fixture.storage._client_factory)
+
+    with pytest.raises(RuntimeError, match="erro original do provedor"):
+        await correction_job_fixture.process(municipio, job, ocr_provider=OCRQueEstoura(), object_storage=quebrado)
