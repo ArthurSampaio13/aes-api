@@ -86,22 +86,12 @@ name = "FastAPI on PyPI"
 [[project.nav]]
 "Operação" = [
     { "Rodando o AES" = "getting-started/running-aes.md" },
+    { "Problemas conhecidos" = "known-issues.md" },
 ]
 
 [[project.nav]]
 "Referência da plataforma" = [
-    { "Getting Started" = [
-        { "Overview" = "getting-started/index.md" },
-        { "Installation" = "getting-started/installation.md" },
-        { "Configuration" = "getting-started/configuration.md" },
-        { "First Run" = "getting-started/first-run.md" },
-        { "Known issues" = "known-issues.md" },
-    ] },
-    { "Fastro vs FastroAI" = "fastro-vs-fastroai.md" },
-    { "User Guide" = "user-guide/index.md" },
-    { "CLI" = "cli/index.md" },
-    { "Changelog" = "changelog.md" },
-    { "Community" = "community.md" },
+    { "Visão geral" = "user-guide/index.md" },
 ]
 
 # ==============================================================================
