@@ -21,6 +21,7 @@ from ._pydantic_ai_support import (
     openrouter_model_settings,
     provedor_servido,
     resolve_agent_model,
+    somar_uso_do_modelo,
 )
 from .guardrails import GuardrailLog, Transcription, contar_palavras, guard_transcricao
 from .ocr_base import OCRResult
@@ -75,9 +76,24 @@ class VisionOCRProvider:
                     deps=eventos,
                 )
             except UnexpectedModelBehavior as exc:
+                uso = somar_uso_do_modelo(exchange)
+                partial_meta = {
+                    "model": self.model_id,
+                    "tokens_in": uso.tokens_in,
+                    "tokens_out": uso.tokens_out,
+                    "cache_read_tokens": uso.cache_read_tokens,
+                    "cache_write_tokens": uso.cache_write_tokens,
+                    "cost_usd": str(uso.cost_usd) if uso.cost_usd is not None else None,
+                    "served_provider": provedor_servido(exchange),
+                    "latency_ms": int((time.monotonic() - started_at) * 1000),
+                    "model_retries": max(contar_respostas_do_modelo(exchange) - 1, 0),
+                    "guardrail_events": eventos,
+                    "raw_exchange": dump_exchange(exchange),
+                }
                 raise TranscriptionQualityError(
                     f"Transcrição insuficiente após {get_settings().AES_OCR_MAX_RETRIES} tentativas; "
-                    "a folha requer digitação manual."
+                    "a folha requer digitação manual.",
+                    partial_meta=partial_meta,
                 ) from exc
 
         texto = result.output.texto.strip()

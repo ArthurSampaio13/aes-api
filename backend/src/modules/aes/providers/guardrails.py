@@ -83,6 +83,10 @@ def guard_transcricao(
             _registrar(ctx.deps, "transcricao", "retry", "transcricao vazia ou sem palavras")
             return GuardrailResult.retry(_RETRY_TRANSCRICAO)
 
+        if output.trechos_ilegiveis / palavras > max_ilegivel:
+            _registrar(ctx.deps, "transcricao", "retry", f"{output.trechos_ilegiveis} trechos ilegiveis em {palavras} palavras")
+            return GuardrailResult.retry(_RETRY_TRANSCRICAO)
+
         if palavras < min_palavras:
             ja_perguntou = any(e["guard"] == "transcricao" and e["motivo"].startswith(_MOTIVO_POUCAS) for e in ctx.deps)
             if not ja_perguntou:
@@ -91,10 +95,6 @@ def guard_transcricao(
             _registrar(ctx.deps, "transcricao", "allow", f"{palavras} palavras reafirmadas como completas")
             return GuardrailResult.allow()
 
-        if output.trechos_ilegiveis / palavras > max_ilegivel:
-            _registrar(ctx.deps, "transcricao", "retry", f"{output.trechos_ilegiveis} trechos ilegiveis em {palavras} palavras")
-            return GuardrailResult.retry(_RETRY_TRANSCRICAO)
-
         _registrar(ctx.deps, "transcricao", "allow", f"{palavras} palavras")
         return GuardrailResult.allow()
 
@@ -102,8 +102,13 @@ def guard_transcricao(
 
 
 def _textos_avaliativos(output: CorrectionCandidate) -> list[str]:
+    """Justificativas e feedback: onde uma citação afirma o que o aluno escreveu.
+
+    `sugestao_acionavel` fica de fora de propósito: seu papel é propor texto que o aluno ainda
+    não escreveu, então uma citação ali não é evidência inventada.
+    """
     scores = output.scores.model_dump()
-    return [c["justificativa"] for c in scores.values()] + [output.feedback, output.sugestao_acionavel]
+    return [c["justificativa"] for c in scores.values()] + [output.feedback]
 
 
 def guard_citacoes(ctx: RunContext[CorrectionDeps], output: CorrectionCandidate) -> GuardrailResult:
@@ -113,7 +118,7 @@ def guard_citacoes(ctx: RunContext[CorrectionDeps], output: CorrectionCandidate)
             if normalizar(citacao) not in redacao:
                 _registrar(ctx.deps.events, "citacoes", "retry", f"citacao ausente: {citacao}")
                 return GuardrailResult.retry(
-                    f'A justificativa cita "{citacao}", que não aparece na redação do aluno. '
+                    f'O texto cita "{citacao}", que não aparece na redação do aluno. '
                     "Cite apenas trechos presentes no texto, ou reescreva sem citar."
                 )
     _registrar(ctx.deps.events, "citacoes", "allow", "todas as citacoes ancoradas")

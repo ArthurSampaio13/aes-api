@@ -8,6 +8,7 @@ from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.models.function import AgentInfo, FunctionDef, FunctionModel
 from pydantic_ai.models.openrouter import OpenRouterModel, OpenRouterModelSettings
 from pydantic_ai.providers.openrouter import OpenRouterProvider
+from pydantic_ai_harness import GuardrailResult, OutputGuardrail
 
 from src.infrastructure.config.settings import get_settings
 from src.modules.aes.providers._pydantic_ai_support import (
@@ -18,6 +19,7 @@ from src.modules.aes.providers._pydantic_ai_support import (
     split_prompt_for_caching,
 )
 from src.modules.aes.providers.base import FIXED_CRITERIA, CorrectionCandidate
+from src.modules.aes.providers.guardrails import CorrectionDeps
 
 VALID_SCORES = {c: {"nota": 7, "justificativa": "ok"} for c in FIXED_CRITERIA}
 
@@ -220,3 +222,46 @@ async def test_cost_usd_reflete_o_custo_reportado_pelo_usage_da_rodada():
     )
 
     assert resposta.cost_usd == Decimal("0.0042")
+
+
+def _guard_sempre_retry(ctx, output: CorrectionCandidate) -> GuardrailResult:
+    return GuardrailResult.retry("sempre rejeita, para exaurir o orcamento de retries")
+
+
+@pytest.mark.asyncio
+async def test_falha_por_exaustao_do_guardrail_ainda_reporta_tokens_e_custo_reais():
+    """Toda chamada ao modelo custa dinheiro, mesmo quando um guardrail rejeita a saida em todas elas.
+
+    Sem essa contagem, um job que falha por exaustao de guardrail parece nao ter custado nada, e
+    `AesService.check_budget` deixa passar chamadas reais contra um orcamento que nunca foi debitado.
+    """
+
+    def responder(messages: list, info: AgentInfo) -> ModelResponse:
+        return _resposta_do_modelo(
+            RequestUsage(input_tokens=1000, output_tokens=200, cost=Decimal("0.01")),
+            provider_details={"downstream_provider": "anthropic/claude-3.5-sonnet"},
+        )
+
+    agent = Agent(
+        FunctionModel(responder),
+        output_type=CorrectionCandidate,
+        deps_type=CorrectionDeps,
+        retries={"output": 2},
+        capabilities=[OutputGuardrail[CorrectionDeps](guard=_guard_sempre_retry)],
+    )
+
+    resposta = await run_agent(
+        agent,
+        essay_text="texto",
+        prompt="RUBRICA {essay_text}",
+        model_settings={},
+        model_id="openrouter:modelo/teste",
+        deps=CorrectionDeps(essay_text="texto"),
+    )
+
+    assert resposta.structured is None
+    assert resposta.model_retries == 2
+    assert resposta.tokens_in == 3000
+    assert resposta.tokens_out == 600
+    assert resposta.cost_usd == Decimal("0.03")
+    assert resposta.served_provider == "anthropic/claude-3.5-sonnet"

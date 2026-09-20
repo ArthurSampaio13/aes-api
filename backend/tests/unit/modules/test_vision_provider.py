@@ -1,5 +1,5 @@
 import pytest
-from pydantic_ai import BinaryContent
+from pydantic_ai import BinaryContent, RequestUsage
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
@@ -126,6 +126,35 @@ async def test_transcricao_persistentemente_incompleta_levanta_erro_de_dominio()
     with provider.agent.override(model=_modelo_de_transcricao(sequencia, chamadas)):
         with pytest.raises(TranscriptionQualityError):
             await provider.extract_text(image_bytes=PNG_BYTES)
+
+
+@pytest.mark.asyncio
+async def test_falha_de_qualidade_carrega_o_uso_real_das_chamadas_ja_feitas():
+    """As chamadas ao modelo que resultaram em erro de qualidade ja foram pagas.
+
+    O erro tem que carregar esse uso consigo, para o worker gravar o rastro antes de propagar a falha; sem isso a
+    submissao fica sem nenhum registro da tentativa.
+    """
+    chamadas: list = []
+
+    def responder(messages: list, info: AgentInfo) -> ModelResponse:
+        chamadas.append(messages)
+        payload = {"texto": "curto", "transcricao_completa": False, "trechos_ilegiveis": 0}
+        return ModelResponse(
+            parts=[ToolCallPart(info.output_tools[0].name, payload)],
+            usage=RequestUsage(input_tokens=500, output_tokens=100),
+        )
+
+    provider = VisionOCRProvider(model_id="openrouter:modelo/teste")
+
+    with provider.agent.override(model=FunctionModel(responder)):
+        with pytest.raises(TranscriptionQualityError) as excinfo:
+            await provider.extract_text(image_bytes=PNG_BYTES)
+
+    partial_meta = excinfo.value.partial_meta
+    assert partial_meta["model"] == "openrouter:modelo/teste"
+    assert partial_meta["tokens_in"] == 500 * len(chamadas)
+    assert partial_meta["tokens_out"] == 100 * len(chamadas)
 
 
 @pytest.mark.asyncio

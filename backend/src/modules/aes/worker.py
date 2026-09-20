@@ -12,6 +12,7 @@ from ...infrastructure.config.settings import get_settings
 from ...infrastructure.database.tenancy import set_tenant_context
 from ...infrastructure.taskiq.brokers import default_broker
 from ...infrastructure.taskiq.deps import get_db_session
+from ..common.exceptions import TranscriptionQualityError
 from .metrics import (
     CORRECTION_ATTEMPTS_TOTAL,
     CORRECTION_CACHE_TOKENS,
@@ -32,6 +33,17 @@ from .storage import ObjectStorage, get_object_storage
 _TERMINAL_STATUSES = ("done", "failed")
 
 
+async def _store_raw_exchange(meta: dict[str, Any], submission: Submission, object_storage: ObjectStorage) -> dict[str, Any]:
+    raw_exchange = meta.pop("raw_exchange", "")
+    if raw_exchange:
+        meta["raw_exchange_ref"] = await object_storage.put(
+            key=f"transcriptions/{submission.uuid}/exchange.json",
+            content=raw_exchange.encode("utf-8"),
+            content_type="application/json",
+        )
+    return meta
+
+
 async def _transcribe_if_needed(
     submission: Submission,
     ocr_provider: OCRProvider,
@@ -44,16 +56,16 @@ async def _transcribe_if_needed(
         return submission.raw_text
 
     image_bytes = await object_storage.get(submission.original_ref)
-    ocr_result = await ocr_provider.extract_text(image_bytes=image_bytes)
+    try:
+        ocr_result = await ocr_provider.extract_text(image_bytes=image_bytes)
+    except TranscriptionQualityError as exc:
+        failed_meta = await _store_raw_exchange(dict(exc.partial_meta), submission, object_storage)
+        failed_meta["error"] = str(exc)
+        submission.transcription_meta = failed_meta
+        await db.commit()
+        raise
 
-    meta = dict(ocr_result.meta)
-    raw_exchange = meta.pop("raw_exchange", "")
-    if raw_exchange:
-        meta["raw_exchange_ref"] = await object_storage.put(
-            key=f"transcriptions/{submission.uuid}/exchange.json",
-            content=raw_exchange.encode("utf-8"),
-            content_type="application/json",
-        )
+    meta = await _store_raw_exchange(dict(ocr_result.meta), submission, object_storage)
 
     submission.raw_text = ocr_result.text
     submission.transcription_meta = meta

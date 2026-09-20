@@ -122,6 +122,21 @@ def test_transcricao_curta_pergunta_uma_vez_e_aceita_a_reafirmacao():
     assert [e["veredito"] for e in log] == ["retry", "allow"]
 
 
+def test_transcricao_curta_reafirmada_mas_muito_ilegivel_continua_pedindo_retry():
+    """A ilegibilidade tem que vencer mesmo quando a contagem de palavras ja foi reafirmada.
+
+    Reproduz o buraco relatado: 10 palavras, 9 ilegiveis (razao 0.9 >> 0.2), reafirmada como
+    completa apos um retry anterior por poucas palavras. Uma folha 90% ilegivel nao pode passar.
+    """
+    guard = guard_transcricao(min_palavras=40, max_ilegivel=0.2)
+    log = [{"guard": "transcricao", "veredito": "retry", "motivo": "poucas palavras: 10 abaixo de 40"}]
+    saida = Transcription(
+        texto="uma duas tres quatro cinco seis sete oito nove dez", transcricao_completa=True, trechos_ilegiveis=9
+    )
+
+    assert guard(_ctx(log), saida).action == "retry"
+
+
 def test_transcricao_vazia_continua_pedindo_retry_mesmo_apos_ja_ter_perguntado():
     guard = guard_transcricao(min_palavras=40, max_ilegivel=0.2)
     log = [{"guard": "transcricao", "veredito": "retry", "motivo": "poucas palavras: 0 abaixo de 40"}]
@@ -164,6 +179,24 @@ def test_citacao_no_feedback_tambem_e_verificada():
     candidato = _candidato(["ok"] * 5, feedback='Voce escreveu "jamais existiu isso" no final.')
 
     assert guard_citacoes(_ctx(deps), candidato).action == "retry"
+
+
+def test_citacao_na_sugestao_acionavel_nao_pede_retry():
+    """A sugestao acionavel existe para propor texto que o aluno ainda nao escreveu.
+
+    Um guard que a trata como citacao de evidencia penaliza exatamente a sugestao pedagogica mais util (ex.: "use
+    conectivos como 'portanto'"), que nunca vai aparecer literalmente na redacao do aluno.
+    """
+    deps = CorrectionDeps(essay_text="O menino foi a escola.", events=[])
+    candidato = CorrectionCandidate.model_validate(
+        {
+            "scores": {c: {"nota": 7, "justificativa": "ok"} for c in FIXED_CRITERIA},
+            "feedback": "Bom texto.",
+            "sugestao_acionavel": 'Use conectivos como "portanto" para ligar as ideias.',
+        }
+    )
+
+    assert guard_citacoes(_ctx(deps), candidato).action == "allow"
 
 
 def test_citacao_que_so_difere_por_virgula_inserida_na_redacao_passa():

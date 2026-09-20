@@ -316,6 +316,48 @@ async def test_transcricao_insuficiente_falha_o_job_sem_chamar_o_corretor(correc
 
 
 @pytest.mark.asyncio
+async def test_transcricao_com_falha_de_qualidade_deixa_rastro_na_submissao(correction_job_fixture):
+    """Uma folha ilegivel tem que chegar a um humano com o rastro de quanto custou tentar le-la.
+
+    Sem isso, o manifesto mostra `transcription: null` para exatamente o caso que mais precisa de
+    auditoria: a folha que falhou a checagem de qualidade apos chamadas reais ao modelo.
+    """
+    municipio, job = await correction_job_fixture.build(
+        input_type="image", raw_text=None, original_ref="submissions/rastro-falha/original.png"
+    )
+    await correction_job_fixture.storage.put(
+        key="submissions/rastro-falha/original.png", content=b"\x89PNG falso", content_type="image/png"
+    )
+
+    class OCRQueFalhaComRastro:
+        async def extract_text(self, image_bytes: bytes) -> OCRResult:
+            raise TranscriptionQualityError(
+                "transcricao insuficiente",
+                partial_meta={"model": "openrouter:modelo/teste", "tokens_in": 1000, "tokens_out": 200},
+            )
+
+    class ProviderQueNaoDeveRodar:
+        model_id = "openrouter:modelo/teste"
+
+        async def correct(self, essay_text: str, prompt: str, params: dict[str, Any]) -> ProviderResponse:
+            raise AssertionError("o corretor nao pode rodar com transcricao insuficiente")
+
+    with pytest.raises(TranscriptionQualityError):
+        await correction_job_fixture.process(
+            municipio, job, provider=ProviderQueNaoDeveRodar(), ocr_provider=OCRQueFalhaComRastro()
+        )
+
+    db_session = correction_job_fixture.db_session
+    await db_session.refresh(job)
+    assert job.status == "failed"
+
+    submission = (await db_session.execute(select(Submission).where(Submission.uuid == job.submission_id))).scalar_one()
+    assert submission.transcription_meta["error"] == "transcricao insuficiente"
+    assert submission.transcription_meta["tokens_in"] == 1000
+    assert submission.transcription_meta["tokens_out"] == 200
+
+
+@pytest.mark.asyncio
 async def test_transcricao_deixa_rastro_na_submissao(correction_job_fixture):
     municipio, job = await correction_job_fixture.build(
         input_type="image", raw_text=None, original_ref="submissions/rastro/original.png"

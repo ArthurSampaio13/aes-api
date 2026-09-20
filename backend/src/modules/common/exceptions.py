@@ -76,4 +76,6 @@ class BudgetExceededError(DomainError):
 class TranscriptionQualityError(DomainError):
     """Raised when handwriting transcription stays below the quality floor after every retry."""
 
-    pass
+    def __init__(self, message: str, partial_meta: dict | None = None) -> None:
+        super().__init__(message)
+        self.partial_meta = partial_meta or {}

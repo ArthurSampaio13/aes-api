@@ -3,6 +3,8 @@
 import json
 import time
 from collections.abc import Sequence
+from dataclasses import dataclass
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from pydantic_ai import ModelMessage, ModelResponse, capture_run_messages
@@ -95,6 +97,35 @@ def contar_respostas_do_modelo(messages: Sequence[ModelMessage]) -> int:
     return sum(isinstance(m, ModelResponse) for m in messages)
 
 
+@dataclass
+class UsoAcumulado:
+    tokens_in: int = 0
+    tokens_out: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+    cost_usd: Decimal | None = None
+
+
+def somar_uso_do_modelo(messages: Sequence[ModelMessage]) -> UsoAcumulado:
+    """Soma o `usage` de toda `ModelResponse` do exchange.
+
+    Cada resposta do modelo já foi paga, mesmo quando a rodada termina em erro; um run que esgota o orçamento de retries
+    de um guardrail fez `len(respostas)` chamadas reais e cobráveis.
+    """
+    uso = UsoAcumulado()
+    for message in messages:
+        if not isinstance(message, ModelResponse):
+            continue
+        usage = message.usage
+        uso.tokens_in += usage.input_tokens
+        uso.tokens_out += usage.output_tokens
+        uso.cache_read_tokens += usage.cache_read_tokens
+        uso.cache_write_tokens += usage.cache_write_tokens
+        if usage.cost is not None:
+            uso.cost_usd = (uso.cost_usd or Decimal(0)) + usage.cost
+    return uso
+
+
 def provedor_servido(messages: Sequence[ModelMessage]) -> str | None:
     """O backend que de fato serviu a chamada.
 
@@ -137,13 +168,18 @@ async def run_agent(
                 user_content, instructions=instructions, model_settings=model_settings, deps=deps
             )
         except Exception as exc:
+            uso = somar_uso_do_modelo(exchange)
             return ProviderResponse(
                 raw_text="",
                 raw_request=raw_request,
                 raw_response=dump_exchange(exchange),
                 structured=None,
-                tokens_in=0,
-                tokens_out=0,
+                tokens_in=uso.tokens_in,
+                tokens_out=uso.tokens_out,
+                cache_read_tokens=uso.cache_read_tokens,
+                cache_write_tokens=uso.cache_write_tokens,
+                cost_usd=uso.cost_usd,
+                served_provider=provedor_servido(exchange),
                 latency_ms=int((time.monotonic() - started_at) * 1000),
                 validation_error=str(exc),
                 validation_error_type=type(exc).__name__,
