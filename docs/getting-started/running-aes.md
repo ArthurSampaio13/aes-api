@@ -209,6 +209,18 @@ Returns `scores` for the five fixed criteria (`adequacao_tema`,
     an autonomous final grade. A teacher reviews every correction before it
     reaches a student.
 
+**Get the batch manifest** — every condition behind every correction in the
+batch: provider, model, prompt/rubric versions, tokens, cost, guardrail
+verdicts, and the transcription trace:
+
+```bash
+curl -s -H "X-API-Key: $API_KEY" http://localhost:8000/api/v1/aes/batches/<BATCH_ID>/manifest
+```
+
+`<BATCH_ID>` is the `batch_id` returned by the submit call above. This is the
+audit trail a researcher or a municipality would export to compute
+cost-per-correction or reproduce a run.
+
 ## 5b. Using a real LLM provider
 
 The stack defaults to the `mock` correction provider — deterministic, free, and
