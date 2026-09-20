@@ -48,6 +48,7 @@ class CorrectionAttempt(Base, UUIDMixin, TimestampMixin):
     cache_read_tokens: Mapped[int | None] = mapped_column(Integer, default=None)
     cache_write_tokens: Mapped[int | None] = mapped_column(Integer, default=None)
     cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 8), default=None)
+    cost_source: Mapped[str | None] = mapped_column(String(20), default=None)
     served_provider: Mapped[str | None] = mapped_column(String(100), default=None)
     guardrail_events: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, default=None)
     model_retries: Mapped[int | None] = mapped_column(Integer, default=None)

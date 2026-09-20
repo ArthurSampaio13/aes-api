@@ -149,6 +149,7 @@ async def _run_attempt(
         cache_read_tokens=response.cache_read_tokens,
         cache_write_tokens=response.cache_write_tokens,
         cost_usd=response.cost_usd,
+        cost_source=response.cost_source,
         served_provider=response.served_provider,
         guardrail_events=response.guardrail_events or None,
         model_retries=response.model_retries,

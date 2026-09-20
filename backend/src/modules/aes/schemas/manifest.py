@@ -26,6 +26,7 @@ class AttemptManifest(BaseModel):
     cache_read_tokens: int | None
     cache_write_tokens: int | None
     cost_usd: Decimal | None
+    cost_source: str | None
     latency_ms: int | None
     model_retries: int | None
     guardrail_events: list[dict[str, Any]] | None

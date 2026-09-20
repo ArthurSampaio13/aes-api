@@ -144,6 +144,20 @@ def custo_cobrado(messages: Sequence[ModelMessage]) -> Decimal | None:
     return total
 
 
+def custo_e_origem(messages: Sequence[ModelMessage], estimativa: Decimal | None) -> tuple[Decimal | None, str | None]:
+    """O custo e de onde ele veio: `charged` do provedor, `estimated` do genai-prices, ou nada.
+
+    Sem registrar a origem, somar a coluna mistura o que o OpenRouter cobrou com o que o genai-prices
+    estimou, e o total perde significado — exatamente o tipo de número que um trabalho acadêmico cita.
+    """
+    cobrado = custo_cobrado(messages)
+    if cobrado is not None:
+        return cobrado, "charged"
+    if estimativa is not None:
+        return estimativa, "estimated"
+    return None, None
+
+
 def provedor_servido(messages: Sequence[ModelMessage]) -> str | None:
     """O backend que de fato serviu a chamada.
 
@@ -187,6 +201,7 @@ async def run_agent(
             )
         except Exception as exc:
             uso = somar_uso_do_modelo(exchange)
+            custo, origem = custo_e_origem(exchange, uso.cost_usd)
             return ProviderResponse(
                 raw_text="",
                 raw_request=raw_request,
@@ -196,7 +211,8 @@ async def run_agent(
                 tokens_out=uso.tokens_out,
                 cache_read_tokens=uso.cache_read_tokens,
                 cache_write_tokens=uso.cache_write_tokens,
-                cost_usd=cobrado if (cobrado := custo_cobrado(exchange)) is not None else uso.cost_usd,
+                cost_usd=custo,
+                cost_source=origem,
                 served_provider=provedor_servido(exchange),
                 latency_ms=int((time.monotonic() - started_at) * 1000),
                 validation_error=str(exc),
@@ -206,6 +222,7 @@ async def run_agent(
             )
 
         usage = result.usage
+        custo, origem = custo_e_origem(exchange, usage.cost)
         eventos = list(getattr(deps, "events", deps) or []) if deps is not None else []
         return ProviderResponse(
             raw_text=extract_raw_output_text(result.new_messages()),
@@ -216,7 +233,8 @@ async def run_agent(
             tokens_out=usage.output_tokens,
             cache_read_tokens=usage.cache_read_tokens,
             cache_write_tokens=usage.cache_write_tokens,
-            cost_usd=cobrado if (cobrado := custo_cobrado(exchange)) is not None else usage.cost,
+            cost_usd=custo,
+            cost_source=origem,
             served_provider=provedor_servido(exchange),
             guardrail_events=eventos,
             model_retries=max(contar_respostas_do_modelo(exchange) - 1, 0),

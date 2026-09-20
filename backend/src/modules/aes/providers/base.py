@@ -55,6 +55,7 @@ class ProviderResponse(BaseModel):
     cache_read_tokens: int = 0
     cache_write_tokens: int = 0
     cost_usd: Decimal | None = None
+    cost_source: str | None = None
     served_provider: str | None = None
     guardrail_events: list[dict[str, str]] = Field(default_factory=list)
     model_retries: int = 0

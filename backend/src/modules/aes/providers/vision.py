@@ -17,7 +17,7 @@ from ....infrastructure.config.settings import get_settings
 from ...common.exceptions import TranscriptionQualityError
 from ._pydantic_ai_support import (
     contar_respostas_do_modelo,
-    custo_cobrado,
+    custo_e_origem,
     dump_exchange,
     openrouter_model_settings,
     provedor_servido,
@@ -78,13 +78,15 @@ class VisionOCRProvider:
                 )
             except Exception as exc:
                 uso = somar_uso_do_modelo(exchange)
+                custo, origem = custo_e_origem(exchange, uso.cost_usd)
                 partial_meta = {
                     "model": self.model_id,
                     "tokens_in": uso.tokens_in,
                     "tokens_out": uso.tokens_out,
                     "cache_read_tokens": uso.cache_read_tokens,
                     "cache_write_tokens": uso.cache_write_tokens,
-                    "cost_usd": str(cobrado) if (cobrado := custo_cobrado(exchange) or uso.cost_usd) is not None else None,
+                    "cost_usd": str(custo) if custo is not None else None,
+                    "cost_source": origem,
                     "served_provider": provedor_servido(exchange),
                     "latency_ms": int((time.monotonic() - started_at) * 1000),
                     "model_retries": max(contar_respostas_do_modelo(exchange) - 1, 0),
@@ -102,6 +104,7 @@ class VisionOCRProvider:
 
         texto = result.output.texto.strip()
         usage = result.usage
+        custo, origem = custo_e_origem(exchange, usage.cost)
         return OCRResult(
             text=texto,
             transcricao_completa=result.output.transcricao_completa,
@@ -112,7 +115,8 @@ class VisionOCRProvider:
                 "tokens_out": usage.output_tokens,
                 "cache_read_tokens": usage.cache_read_tokens,
                 "cache_write_tokens": usage.cache_write_tokens,
-                "cost_usd": str(cobrado) if (cobrado := custo_cobrado(exchange) or usage.cost) is not None else None,
+                "cost_usd": str(custo) if custo is not None else None,
+                "cost_source": origem,
                 "served_provider": provedor_servido(exchange),
                 "latency_ms": int((time.monotonic() - started_at) * 1000),
                 "model_retries": max(contar_respostas_do_modelo(exchange) - 1, 0),

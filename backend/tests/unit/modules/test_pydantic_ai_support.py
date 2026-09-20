@@ -291,6 +291,7 @@ async def test_cost_usd_prefere_o_valor_cobrado_pelo_openrouter_a_estimativa():
     )
 
     assert resposta.cost_usd == Decimal("0.0008936032")
+    assert resposta.cost_source == "charged"
 
 
 @pytest.mark.asyncio
@@ -326,3 +327,23 @@ async def test_cost_usd_cai_para_a_estimativa_quando_o_provedor_nao_informa():
     )
 
     assert resposta.cost_usd == Decimal("0.42")
+    assert resposta.cost_source == "estimated"
+
+
+@pytest.mark.asyncio
+async def test_sem_custo_algum_a_origem_fica_nula_em_vez_de_mentir():
+    """Somar uma coluna que mistura cobrado e estimado sem dizer qual produz um total sem significado."""
+
+    def responder(messages: list, info: AgentInfo) -> ModelResponse:
+        return _resposta_do_modelo(RequestUsage(input_tokens=10, output_tokens=5))
+
+    resposta = await run_agent(
+        _agente_de_teste(responder),
+        essay_text="texto",
+        prompt="RUBRICA {essay_text}",
+        model_settings={},
+        model_id="openrouter:modelo/teste",
+    )
+
+    assert resposta.cost_usd is None
+    assert resposta.cost_source is None
