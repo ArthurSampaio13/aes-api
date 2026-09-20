@@ -1,11 +1,11 @@
 [project]
-site_name = "Fastro · FastAPI Boilerplate"
-site_description = "Production-ready FastAPI starter with sessions, OAuth, SQLAdmin, Taskiq, Redis caching, and a plugin-aware CLI."
-site_url = "https://benavlabs.github.io/FastAPI-boilerplate"
+site_name = "Correção assistida de redações"
+site_description = "Artefato de software de um TCC sobre correção de redações do Ensino Fundamental assistida por modelos de linguagem."
+site_url = "https://arthursampaio13.github.io/aes-api"
 docs_dir = "docs"
 site_dir = "site"
 
-copyright = "&copy; 2026 Benav Labs"
+copyright = "&copy; 2026 Arthur Sampaio"
 
 extra_css = ["stylesheets/extra.css"]
 
@@ -57,8 +57,8 @@ toggle.name = "Switch to light mode"
 
 [[project.extra.social]]
 icon = "fontawesome/brands/github"
-link = "https://github.com/benavlabs/fastapi-boilerplate"
-name = "FastAPI boilerplate on GitHub"
+link = "https://github.com/ArthurSampaio13/aes-api"
+name = "Repositório do projeto no GitHub"
 
 [[project.extra.social]]
 icon = "fontawesome/brands/python"
@@ -73,80 +73,36 @@ name = "FastAPI on PyPI"
 "Home" = "index.md"
 
 [[project.nav]]
-"Fastro vs FastroAI" = "fastro-vs-fastroai.md"
-
-[[project.nav]]
-"Getting Started" = [
-    { "Overview" = "getting-started/index.md" },
-    { "Installation" = "getting-started/installation.md" },
-    { "Configuration" = "getting-started/configuration.md" },
-    { "First Run" = "getting-started/first-run.md" },
-    { "Running AES" = "getting-started/running-aes.md" },
-    { "Known issues" = "known-issues.md" },
+"Projeto" = [
+    { "Visão geral" = "projeto/index.md" },
+    { "Arquitetura" = "projeto/arquitetura.md" },
+    { "Processo de correção" = "projeto/processo-de-correcao.md" },
+    { "Guardrails" = "projeto/guardrails.md" },
+    { "OpenRouter" = "projeto/openrouter.md" },
+    { "Rastreabilidade" = "projeto/rastreabilidade.md" },
+    { "Decisões de projeto" = "projeto/decisoes.md" },
 ]
 
 [[project.nav]]
-"User Guide" = [
-    { "Overview" = "user-guide/index.md" },
-    { "Project Structure" = "user-guide/project-structure.md" },
-    { "Configuration" = [
-        { "Overview" = "user-guide/configuration/index.md" },
-        { "Environment Variables" = "user-guide/configuration/environment-variables.md" },
-        { "Settings Classes" = "user-guide/configuration/settings-classes.md" },
-        { "Docker Setup" = "user-guide/configuration/docker-setup.md" },
-        { "Environment-Specific" = "user-guide/configuration/environment-specific.md" },
-    ] },
-    { "Database" = [
-        { "Overview" = "user-guide/database/index.md" },
-        { "Models" = "user-guide/database/models.md" },
-        { "Schemas" = "user-guide/database/schemas.md" },
-        { "CRUD Operations" = "user-guide/database/crud.md" },
-        { "Migrations" = "user-guide/database/migrations.md" },
-    ] },
-    { "API" = [
-        { "Overview" = "user-guide/api/index.md" },
-        { "Endpoints" = "user-guide/api/endpoints.md" },
-        { "Pagination" = "user-guide/api/pagination.md" },
-        { "Exceptions" = "user-guide/api/exceptions.md" },
-        { "Versioning" = "user-guide/api/versioning.md" },
-    ] },
-    { "Authentication" = [
-        { "Overview" = "user-guide/authentication/index.md" },
-        { "Sessions" = "user-guide/authentication/sessions.md" },
-        { "User Management" = "user-guide/authentication/user-management.md" },
-        { "Permissions" = "user-guide/authentication/permissions.md" },
-    ] },
-    { "Admin Panel" = [
-        { "Overview" = "user-guide/admin-panel/index.md" },
-        { "Configuration" = "user-guide/admin-panel/configuration.md" },
-        { "Adding Models" = "user-guide/admin-panel/adding-models.md" },
-        { "User Management" = "user-guide/admin-panel/user-management.md" },
-    ] },
-    { "Caching" = [
-        { "Overview" = "user-guide/caching/index.md" },
-        { "Redis Cache" = "user-guide/caching/redis-cache.md" },
-        { "Client Cache" = "user-guide/caching/client-cache.md" },
-        { "Cache Strategies" = "user-guide/caching/cache-strategies.md" },
-    ] },
-    { "Background Tasks" = "user-guide/background-tasks/index.md" },
-    { "Rate Limiting" = "user-guide/rate-limiting/index.md" },
-    { "Development" = "user-guide/development.md" },
-    { "Production" = "user-guide/production.md" },
-    { "Testing" = "user-guide/testing.md" },
+"Operação" = [
+    { "Rodando o AES" = "getting-started/running-aes.md" },
 ]
 
 [[project.nav]]
-"CLI" = [
-    { "Overview" = "cli/index.md" },
-    { "Commands" = "cli/commands.md" },
-    { "Plugins" = "cli/plugins.md" },
+"Referência da plataforma" = [
+    { "Getting Started" = [
+        { "Overview" = "getting-started/index.md" },
+        { "Installation" = "getting-started/installation.md" },
+        { "Configuration" = "getting-started/configuration.md" },
+        { "First Run" = "getting-started/first-run.md" },
+        { "Known issues" = "known-issues.md" },
+    ] },
+    { "Fastro vs FastroAI" = "fastro-vs-fastroai.md" },
+    { "User Guide" = "user-guide/index.md" },
+    { "CLI" = "cli/index.md" },
+    { "Changelog" = "changelog.md" },
+    { "Community" = "community.md" },
 ]
-
-[[project.nav]]
-"Changelog" = "changelog.md"
-
-[[project.nav]]
-"Community" = "community.md"
 
 # ==============================================================================
 # Markdown extensions
