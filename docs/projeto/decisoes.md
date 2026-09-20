@@ -57,7 +57,8 @@ mais, e aí liga-se.
 
 **Custo se errada.** Resultados não comparáveis entre execuções. O efeito é
 mensurável: o guardrail de citações disparou 20, 9, 7 e 13 vezes sobre o mesmo
-conjunto de redações em quatro execuções.
+conjunto de 28 redações em quatro execuções (2026-09-19 e 2026-09-20,
+deepseek-v4.1-flash).
 
 ## O custo gravado é o cobrado, com a procedência explícita
 
@@ -85,7 +86,7 @@ entregue de novo.
 
 **Custo se errada.** Volta a duplicar execução. Antes da correção, o sistema
 rodava 2,86 execuções por job e pagava por todas; depois, 1,00 (lotes
-`3f675701` e `f0b97f15`).
+`3f675701` de 2026-09-19 e `f0b97f15` de 2026-09-20, deepseek-v4.1-flash).
 
 ## A documentação separa o projeto da plataforma herdada
 

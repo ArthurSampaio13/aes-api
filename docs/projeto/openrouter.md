@@ -37,8 +37,9 @@ A consequência é direta: a mesma requisição, com a mesma temperatura e o
 mesmo seed, pode produzir saídas diferentes dependendo de quem atendeu.
 
 Isso é visível nos dados. O guardrail de citações disparou 20, 9, 7 e 13 vezes
-em quatro execuções do mesmo conjunto de 28 redações — uma variação por fator
-de quase três, sem que nada na entrada tivesse mudado.
+em quatro execuções do mesmo conjunto de 28 redações (2026-09-19 e 2026-09-20,
+deepseek-v4.1-flash) — uma variação por fator de quase três, sem que nada na
+entrada tivesse mudado.
 
 ### O que o sistema faz a respeito
 
