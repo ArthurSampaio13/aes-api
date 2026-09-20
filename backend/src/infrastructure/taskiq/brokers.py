@@ -57,13 +57,21 @@ def _queue_name_from_url(queue_url: str) -> str:
 
 
 def _create_sqs_broker() -> AsyncBroker:
-    """Create SQS-based broker for taskiq (LocalStack locally, real SQS in production)."""
+    """Create SQS-based broker for taskiq (LocalStack locally, real SQS in production).
+
+    `visibility_timeout` vai por recebimento, e não depende do default da fila: uma
+    correção leva p50 de 65s e até 160s, então com os 30s padrão da AWS o SQS torna a
+    mensagem visível no meio da execução e entrega de novo, rodando o job inteiro mais
+    de uma vez e pagando o modelo a cada volta. Definir aqui sobrevive à fila ser
+    recriada sem os atributos, que foi como o problema apareceu.
+    """
     return SQSBroker(
         sqs_queue_name=_queue_name_from_url(settings.TASKIQ_SQS_QUEUE_URL),
         endpoint_url=settings.TASKIQ_SQS_ENDPOINT_URL or None,
         region_name=settings.TASKIQ_SQS_REGION,
         aws_access_key_id=settings.TASKIQ_SQS_ACCESS_KEY,
         aws_secret_access_key=settings.TASKIQ_SQS_SECRET_KEY,
+        visibility_timeout=settings.TASKIQ_SQS_VISIBILITY_TIMEOUT,
     )
 
 
