@@ -76,12 +76,14 @@ queda de rede não funcionaria, porque não há conversa para continuar.
 
 ## Como isso aparece na prática
 
-No lote `20f9e14e` (2026-09-20, deepseek-v4.1-flash), 26 dos 28 jobs
-acertaram na primeira tentativa. Os outros dois esgotaram o orçamento interno
-do guardrail — o modelo insistiu em saída que não passava — e foram
-recuperados pelo laço externo numa segunda tentativa, que passou.
+No experimento de confiabilidade (lotes `e4d508d6`, `7c7c395b`, `f6dd1865` e
+`cda91f62`, 2026-09-20, deepseek-v4.1-flash), 462 dos 470 jobs acertaram na
+primeira tentativa. Os outros oito esgotaram o orçamento interno do guardrail
+— o modelo insistiu em saída que não passava — e foram recuperados pelo laço
+externo numa segunda tentativa, que passou.
 
-Essas duas tentativas esgotadas registraram 8.725 e 8.728 tokens de entrada e
-custo de cerca de US$ 0,0025 cada. Não foram gratuitas, e a tabela de
+Essas oito tentativas esgotadas registraram de 6.953 a 9.304 tokens de entrada,
+com mediana de US$ 0,0023 e US$ 0,0201 somados. Todas as oito consumiram os
+dois retries internos antes de desistir. Não foram gratuitas, e a tabela de
 auditoria mostra isso: uma tentativa que falha depois de três chamadas ao
 modelo gravou o que essas três chamadas custaram.

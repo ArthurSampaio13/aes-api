@@ -80,6 +80,7 @@ name = "FastAPI on PyPI"
     { "Guardrails" = "projeto/guardrails.md" },
     { "OpenRouter" = "projeto/openrouter.md" },
     { "Rastreabilidade" = "projeto/rastreabilidade.md" },
+    { "Confiabilidade" = "projeto/confiabilidade.md" },
     { "Decisões de projeto" = "projeto/decisoes.md" },
 ]
 

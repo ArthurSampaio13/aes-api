@@ -34,9 +34,10 @@ registro cru de cada conversa com o modelo.
 
 ## Por que assíncrono
 
-Uma correção leva mediana de 47,6 segundos e chega a 132,2 segundos, e a
-transcrição de uma folha leva outros 17,4 segundos na mediana (lote
-`3f675701`, 2026-09-19, deepseek-v4.1-flash). Um lote aceita até 50 folhas.
+Uma correção leva mediana de 37,8 segundos e chega a 154, e a transcrição de
+uma folha leva outros 11,7 segundos na mediana (lotes `e4d508d6`, `7c7c395b`, `f6dd1865` e `cda91f62`, 2026-09-20,
+deepseek-v4.1-flash, 478 correções e 94 transcrições). Um lote aceita até 50
+folhas.
 
 Prender uma requisição HTTP por esse tempo não é viável, e multiplicar isso
 por 50 folhas numa única requisição é menos ainda. O professor envia o lote,

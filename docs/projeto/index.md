@@ -50,9 +50,9 @@ Cada tentativa é gravada com as condições completas que a produziram. O
 resultado aceito fica disponível para o professor revisar, e o lote inteiro
 pode ser exportado como manifesto de auditoria.
 
-A correção é assíncrona porque é lenta: mediana de 47,6 segundos e cauda de
-132,2 segundos só na etapa de correção (lote `3f675701`, 2026-09-19). Prender
-uma requisição HTTP nisso não é viável, e um lote pode ter 50 folhas.
+A correção é assíncrona porque é lenta: mediana de 37,8 segundos, p95 de 90,7
+e cauda de 154 segundos só na etapa de correção (478 correções, 2026-09-20).
+Prender uma requisição HTTP nisso não é viável, e um lote pode ter 50 folhas.
 
 ## Por onde seguir
 
@@ -72,6 +72,10 @@ resolve, o que custa em reprodutibilidade, e quanto custa em dinheiro.
 
 [**Rastreabilidade**](rastreabilidade.md) — o que fica gravado em cada
 tentativa e como ler o manifesto de um lote.
+
+[**Confiabilidade**](confiabilidade.md) — o experimento de teste-reteste, o
+que as notas fazem quando a mesma redação é corrigida cinco vezes, e o que
+esses números autorizam afirmar.
 
 [**Decisões de projeto**](decisoes.md) — as escolhas de desenho e o que cada
 uma custa se estiver errada.

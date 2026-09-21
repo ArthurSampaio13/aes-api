@@ -55,10 +55,12 @@ derruba o job em vez de ser roteada para outro. Para uso corrente,
 disponibilidade vale mais; para rodada experimental, reprodutibilidade vale
 mais, e aí liga-se.
 
-**Custo se errada.** Resultados não comparáveis entre execuções. O efeito é
-mensurável: o guardrail de citações disparou 20, 9, 7 e 13 vezes sobre o mesmo
-conjunto de 28 redações em quatro execuções (2026-09-19 e 2026-09-20,
-deepseek-v4.1-flash).
+**Custo se errada.** Condição experimental constatada em vez de garantida. No
+experimento de confiabilidade (2026-09-20, 94 redações, cinco execuções), o
+roteador escolheu livremente: na correção serviu as 478 tentativas pelo mesmo
+backend, mas na transcrição alternou entre dois. O resultado foi comparável
+por sorte, não por construção — repetir o experimento pode não reproduzir a
+condição. Ver [Confiabilidade](confiabilidade.md).
 
 ## O custo gravado é o cobrado, com a procedência explícita
 
@@ -85,8 +87,9 @@ ponta a ponta, toda mensagem voltava a ficar visível no meio da execução e er
 entregue de novo.
 
 **Custo se errada.** Volta a duplicar execução. Antes da correção, o sistema
-rodava 2,86 execuções por job e pagava por todas; depois, 1,00 (lotes
-`3f675701` de 2026-09-19 e `f0b97f15` de 2026-09-20, deepseek-v4.1-flash).
+rodava 2,86 execuções por job e pagava por todas (medição de 2026-09-19, em
+lote posterior descartado); depois, 1,02 — 462 dos 470 jobs terminaram em uma
+única tentativa (lotes `e4d508d6`, `7c7c395b`, `f6dd1865` e `cda91f62`, 2026-09-20, deepseek-v4.1-flash).
 
 ## A documentação separa o projeto da plataforma herdada
 

@@ -84,13 +84,20 @@ punir exatamente a saída pedagogicamente desejável.
 
 ### O que foi observado
 
-Em quatro execuções do mesmo conjunto de 28 redações, o guard disparou 20, 9,
-7 e 13 vezes (2026-09-19 e 2026-09-20, deepseek-v4.1-flash).
+Em cinco execuções sobre as mesmas 94 redações — mesma transcrição, mesmo
+modelo, mesmo backend — o guard disparou 31, 26, 42, 33 e 39 vezes
+(2026-09-20, deepseek-v4.1-flash, lotes `e4d508d6`, `7c7c395b`, `f6dd1865` e
+`cda91f62`).
+
+Somando: em 120 das 478 tentativas, cerca de uma em quatro, o modelo tentou
+citar trecho ausente do texto do aluno. Nenhuma correção entregue contém
+citação inventada.
 
 A série é apresentada inteira, e não como média, porque a dispersão é ela
-mesma um resultado: com o pin de provedor desligado, a mesma entrada produz
-taxas que variam por um fator de quase três. Ver
-[OpenRouter](openrouter.md) para o que causa isso.
+mesma um resultado. A entrada foi idêntica nas cinco execuções e a taxa
+variou por um fator de 1,6 — e desta vez **sem** troca de backend, já que as
+478 tentativas foram todas servidas pelo mesmo provedor. A variação é da
+inferência, não do roteamento. Ver [Confiabilidade](confiabilidade.md).
 
 ## Justificativas distintas
 

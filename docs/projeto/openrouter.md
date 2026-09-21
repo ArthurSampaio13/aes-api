@@ -28,18 +28,24 @@ muda quando o modelo muda.
 
 Roteamento tem um preço que só aparece quando se olha os dados.
 
-No lote `3f675701` (2026-09-19), o mesmo modelo foi servido por **dois
-backends diferentes** dentro de uma única execução: `DeepInfra` e `Wafer`. O
+No experimento de confiabilidade (2026-09-20), o mesmo modelo foi servido por
+**dois backends diferentes** na etapa de transcrição: `Alibaba` em 90 folhas e
+`DeepInfra` em 4, sem nenhuma mudança na entrada. O
 OpenRouter distribui carga entre provedores que hospedam o mesmo modelo, e
 esses provedores podem diferir em quantização e em configuração de inferência.
 
 A consequência é direta: a mesma requisição, com a mesma temperatura e o
 mesmo seed, pode produzir saídas diferentes dependendo de quem atendeu.
 
-Isso é visível nos dados. O guardrail de citações disparou 20, 9, 7 e 13 vezes
-em quatro execuções do mesmo conjunto de 28 redações (2026-09-19 e 2026-09-20,
-deepseek-v4.1-flash) — uma variação por fator de quase três, sem que nada na
+Isso é visível nos dados. No experimento de confiabilidade (2026-09-20, 94
+redações), com o pin desligado, o roteador serviu as **transcrições** por dois
+provedores distintos — Alibaba em 90 folhas, DeepInfra em 4 — sem que nada na
 entrada tivesse mudado.
+
+A mesma medição mostra o outro lado: as 478 tentativas de **correção** caíram
+todas no mesmo backend, e ainda assim a nota variou entre execuções. Trocar de
+backend é uma fonte de variação; não é a única. Ver
+[Confiabilidade](confiabilidade.md).
 
 ### O que o sistema faz a respeito
 
@@ -66,8 +72,8 @@ O sistema separa os dois e envia o prefixo como instruções, marcadas para
 cache. Provedores que suportam cacheamento de prefixo cobram menos pelos
 tokens repetidos.
 
-Medido: numa tentativa típica, 768 dos 1.053 tokens de entrada vieram do
-cache (lote `3f675701`, 2026-09-19).
+Medido: numa tentativa típica, 768 dos 864 tokens de entrada vieram do cache,
+e 475 das 478 tentativas leram cache (lotes `e4d508d6`, `7c7c395b`, `f6dd1865` e `cda91f62`, 2026-09-20).
 
 Vale registrar como essa configuração chegou aqui. Ela já esteve no código e
 foi **removida** no commit `e335cda`, com a justificativa de não funcionar. A
@@ -91,17 +97,20 @@ usada como reserva — mas ela não precifica todo modelo, e para o
 dois originou o número, de modo que somar a coluna seja uma operação com
 significado.
 
-Medido no lote `f0b97f15` (2026-09-20, deepseek-v4.1-flash), com 28 redações:
+Medido nos lotes `e4d508d6`, `7c7c395b`, `f6dd1865` e `cda91f62`
+(2026-09-20, deepseek-v4.1-flash, 94 redações e 478 correções):
 
-| etapa              | custo          |
-| ------------------ | -------------- |
-| transcrição        | US$ 0,0656     |
-| correção           | US$ 0,0383     |
-| **total da turma** | **US$ 0,1039** |
+| etapa                    | custo unitário |
+| ------------------------ | -------------- |
+| transcrição, por folha   | US$ 0,0027     |
+| correção, por redação    | US$ 0,0011     |
+| **turma de 28, uma vez** | **US$ 0,1074** |
 
 O contraintuitivo está aí: **a transcrição custa mais que a correção**,
-representando cerca de 63% do total. Processar a imagem de uma folha
+representando cerca de 71% do total. Processar a imagem de uma folha
 manuscrita é mais caro que avaliar o texto extraído dela.
 
-Para dimensionar: corrigir uma turma de 28 redações custou aproximadamente dez
-centavos de dólar.
+Para dimensionar: corrigir uma turma de 28 redações custa aproximadamente onze
+centavos de dólar, e corrigi-la cinco vezes — o que o experimento de
+confiabilidade faz — custa cerca de vinte e dois, porque a transcrição não se
+repete.

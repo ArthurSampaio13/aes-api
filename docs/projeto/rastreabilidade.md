@@ -48,6 +48,38 @@ Isso vale inclusive quando a transcrição **falha**: uma folha que estourou o
 tempo do provedor depois de três tentativas consumiu chamadas reais, e o
 rastro registra o que foi gasto em vez de deixar o campo vazio.
 
+## Execuções repetidas sobre o mesmo lote
+
+```
+POST /api/v1/aes/batches/{batch_id}/corrections
+{ "run_label": "run-3", "provider": "openrouter", "model": "..." }
+```
+
+Cria um job novo por redação do lote, sobre as **mesmas** submissões. O worker
+reaproveita a transcrição que já está gravada, então o OCR não roda de novo:
+cada execução extra custa uma correção, não uma correção mais uma transcrição.
+
+Isso existe por causa de uma medida específica. Para dizer qualquer coisa sobre
+a estabilidade do sistema é preciso corrigir a mesma redação várias vezes e
+comparar as notas. Se cada execução passasse pelo OCR outra vez, a variação
+observada misturaria duas fontes — transcrição e correção — e nenhuma das duas
+ficaria isolável.
+
+Dois rótulos tornam o resultado analisável:
+
+| rótulo         | onde vive    | para que serve                        |
+| -------------- | ------------ | ------------------------------------- |
+| `source_label` | na submissão | identidade da redação entre execuções |
+| `run_label`    | no job       | identidade da execução entre redações |
+
+Sem `source_label`, duas execuções da mesma redação são duas linhas que ninguém
+consegue parear — cada envio cria uma submissão com uuid novo. Sem `run_label`,
+a execução só se reconstrói por ordem de criação, que quebra assim que um job
+falha e é refeito depois.
+
+O rótulo da redação é numerado (`aluno-01`, `aluno-02`), e não o nome do
+arquivo, porque nome de arquivo digitalizado costuma carregar nome de aluno.
+
 ## O manifesto do lote
 
 ```
@@ -67,6 +99,8 @@ resultado aceito.
   "jobs": [
     {
       "job_id": "cd4edcdf-...",
+      "source_label": "aluno-07",
+      "run_label": "run-3",
       "status": "done",
       "input_type": "image",
       "transcription": {
