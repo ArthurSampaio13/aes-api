@@ -249,6 +249,29 @@ distribuição confere o Spearman contra o exemplo de QI × horas de televisão
 da Wikipédia, ρ = −0,1758. Rodar o autoteste antes de confiar num número é
 barato.
 
+### Os dados estão no repositório
+
+As notas e as condições de cada tentativa estão versionadas, sem nenhum texto de
+aluno:
+
+| arquivo                                               | linhas | conteúdo                                   |
+| ----------------------------------------------------- | ------ | ------------------------------------------ |
+| [`dados/notas.csv`](../dados/notas.csv)               | 2.350  | redação × execução × critério → nota       |
+| [`dados/tentativas.csv`](../dados/tentativas.csv)     | 478    | condições, tokens, custo, latência, guards |
+| [`dados/transcricoes.csv`](../dados/transcricoes.csv) | 94     | metadados do OCR por redação               |
+
+Todas as tabelas desta página saem de `notas.csv`:
+
+```bash
+scripts/analise-teste-reteste.py docs/dados/notas.csv
+scripts/analise-distribuicao.py  docs/dados/notas.csv
+```
+
+A redação aparece só pelo rótulo (`9A-01`), numerado e não derivado do nome do
+arquivo. Os campos que citam o texto do aluno — `feedback`, `sugestao_acionavel`
+e `justificativa` — ficam de fora por construção: `scripts/exportar-notas.py`
+tem um autoteste que falha se qualquer um deles atravessar a exportação.
+
 Um **pacote de evidência** do experimento é mantido fora do repositório, com
 os quatro manifestos, as trocas cruas de cada tentativa, as saídas das
 análises, o estado exato do código que produziu os dados e somas SHA-256 de
