@@ -21,6 +21,7 @@ class CorrectionJob(Base, UUIDMixin, TimestampMixin):
     model: Mapped[str] = mapped_column(String(100), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    run_label: Mapped[str | None] = mapped_column(String(50), default=None)
 
 
 class CorrectionAttempt(Base, UUIDMixin, TimestampMixin):

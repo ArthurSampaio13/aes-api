@@ -16,7 +16,7 @@ from .dependencies import AesServiceDep, get_aes_tenant_session
 from .schemas.essay_prompt import EssayPromptCreate, EssayPromptRead
 from .schemas.manifest import BatchManifest
 from .schemas.rubric import RubricCreate, RubricRead
-from .schemas.submission import BatchSubmitRequest, BatchSubmitResponse, JobResultRead, JobStatusRead
+from .schemas.submission import BatchRecorrectRequest, BatchSubmitRequest, BatchSubmitResponse, JobResultRead, JobStatusRead
 from .storage import ObjectStorage, get_object_storage
 
 router = APIRouter(tags=["AES"])
@@ -177,6 +177,8 @@ async def submit_image_batch(
     images: Annotated[list[UploadFile], File()],
     provider: Annotated[str, Form()] = "mock",
     model: Annotated[str | None, Form()] = None,
+    labels: Annotated[list[str] | None, Form()] = None,
+    run_label: Annotated[str | None, Form()] = None,
 ) -> dict[str, Any]:
     try:
         image_data = [(await image.read(), image.content_type or "") for image in images]
@@ -189,6 +191,8 @@ async def submit_image_batch(
             municipio_id=current_user["municipio_id"],
             db=db,
             object_storage=object_storage,
+            labels=labels or None,
+            run_label=run_label,
         )
         return {"batch_id": batch_id, "job_ids": job_ids}
     except Exception as e:
@@ -217,6 +221,32 @@ async def get_job_results(
 ) -> dict[str, Any]:
     try:
         return await aes_service.get_job_result(job_id, db)
+    except Exception as e:
+        http_exception = handle_exception(e)
+        if http_exception:
+            raise http_exception
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
+
+@router.post("/batches/{batch_id}/corrections", status_code=201, response_model=BatchSubmitResponse)
+async def recorrect_batch(
+    batch_id: str,
+    data: BatchRecorrectRequest,
+    db: Annotated[AsyncSession, Depends(get_aes_tenant_session(_batch_write))],
+    current_user: Annotated[dict[str, Any], Depends(_batch_write)],
+    aes_service: AesServiceDep,
+) -> dict[str, Any]:
+    """Corrige de novo as redações do lote, reusando as transcrições já existentes."""
+    try:
+        batch_uuid, job_ids = await aes_service.recorrect_batch(
+            batch_id=batch_id,
+            run_label=data.run_label,
+            provider=data.provider,
+            model=data.model,
+            municipio_id=current_user["municipio_id"],
+            db=db,
+        )
+        return {"batch_id": batch_uuid, "job_ids": job_ids}
     except Exception as e:
         http_exception = handle_exception(e)
         if http_exception:

@@ -28,5 +28,6 @@ class Submission(Base, UUIDMixin, TimestampMixin):
     batch_id: Mapped[uuid_pkg.UUID] = mapped_column(UUID, ForeignKey("batches.uuid"), nullable=False)
     input_type: Mapped[str] = mapped_column(String(10), nullable=False)
     original_ref: Mapped[str] = mapped_column(String(500), nullable=False)
+    source_label: Mapped[str | None] = mapped_column(String(100), default=None)
     raw_text: Mapped[str | None] = mapped_column(Text, default=None)
     transcription_meta: Mapped[dict[str, Any] | None] = mapped_column(JSONB, default=None)

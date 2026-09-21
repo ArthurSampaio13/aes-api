@@ -9,6 +9,18 @@ class BatchSubmitRequest(BaseModel):
 
     essay_prompt_uuid: UUID
     texts: Annotated[list[str], Field(min_length=1, max_length=500)]
+    labels: Annotated[list[str] | None, Field(default=None, max_length=500)]
+    run_label: Annotated[str | None, Field(default=None, max_length=50)]
+    provider: str = "mock"
+    model: str | None = None
+
+
+class BatchRecorrectRequest(BaseModel):
+    """Nova execução sobre as redações que o lote já tem."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    run_label: Annotated[str | None, Field(default=None, max_length=50)]
     provider: str = "mock"
     model: str | None = None
 

@@ -94,6 +94,8 @@ class AesService:
     async def submit_batch(
         self, data: BatchSubmitRequest, user_id: int, municipio_id: int, db: AsyncSession
     ) -> tuple[Any, list[Any]]:
+        if data.labels is not None and len(data.labels) != len(data.texts):
+            raise ValidationError(f"Got {len(data.labels)} labels for {len(data.texts)} texts; they must line up one to one")
         await self.ensure_model_is_known(data.provider, data.model)
         await self.check_budget(municipio_id, db)
         essay_prompt = await self.get_essay_prompt(str(data.essay_prompt_uuid), db)
@@ -105,13 +107,14 @@ class AesService:
         await db.flush()
 
         job_ids = []
-        for text in data.texts:
+        for posicao, text in enumerate(data.texts):
             submission = Submission(
                 municipio_id=municipio_id,
                 batch_id=batch.uuid,
                 input_type="text",
                 original_ref="",
                 raw_text=text,
+                source_label=data.labels[posicao] if data.labels else None,
             )
             db.add(submission)
             await db.flush()
@@ -122,6 +125,7 @@ class AesService:
                 provider=data.provider,
                 model=resolve_model(data.provider, data.model),
                 status="pending",
+                run_label=data.run_label,
             )
             db.add(job)
             await db.flush()
@@ -170,11 +174,15 @@ class AesService:
         municipio_id: int,
         db: AsyncSession,
         object_storage: ObjectStorage,
+        labels: list[str] | None = None,
+        run_label: str | None = None,
     ) -> tuple[Any, list[Any]]:
         if not images:
             raise ValidationError("At least one image is required")
         if len(images) > _MAX_IMAGES_PER_BATCH:
             raise ValidationError(f"At most {_MAX_IMAGES_PER_BATCH} images are allowed per batch")
+        if labels is not None and len(labels) != len(images):
+            raise ValidationError(f"Got {len(labels)} labels for {len(images)} images; they must line up one to one")
         for content, content_type in images:
             if content_type not in _ALLOWED_CONTENT_TYPES:
                 raise ValidationError(f"Unsupported content type: {content_type}")
@@ -192,13 +200,14 @@ class AesService:
         await db.flush()
 
         job_ids = []
-        for content, content_type in images:
+        for posicao, (content, content_type) in enumerate(images):
             submission = Submission(
                 municipio_id=municipio_id,
                 batch_id=batch.uuid,
                 input_type="image",
                 original_ref="",
                 raw_text=None,
+                source_label=labels[posicao] if labels else None,
             )
             extension = _ALLOWED_CONTENT_TYPES[content_type]
             submission.original_ref = await object_storage.put(
@@ -215,6 +224,7 @@ class AesService:
                 provider=provider,
                 model=resolve_model(provider, model),
                 status="pending",
+                run_label=run_label,
             )
             db.add(job)
             await db.flush()
@@ -230,6 +240,59 @@ class AesService:
             prompt_template,
             rubric,
         )
+
+        return batch.uuid, job_ids
+
+    async def recorrect_batch(
+        self,
+        batch_id: str,
+        run_label: str | None,
+        provider: str,
+        model: str | None,
+        municipio_id: int,
+        db: AsyncSession,
+    ) -> tuple[Any, list[Any]]:
+        """Corrige de novo as redações de um lote, sem reenviar nada.
+
+        O worker reusa a transcrição que já está na submissão, então execuções repetidas medem a variação do corretor,
+        não a do OCR — e não pagam o OCR de novo.
+        """
+        await self.ensure_model_is_known(provider, model)
+        await self.check_budget(municipio_id, db)
+
+        batch = (await db.execute(select(Batch).where(Batch.uuid == batch_id))).scalar_one_or_none()
+        if not batch:
+            raise ResourceNotFoundError(f"Batch {batch_id} not found")
+
+        essay_prompt = await self.get_essay_prompt(str(batch.essay_prompt_id), db)
+        prompt_template = await crud_prompt_templates.get(db=db, id=essay_prompt["prompt_template_id"])
+        rubric = await crud_rubrics.get(db=db, id=essay_prompt["rubric_id"])
+
+        submissions = (
+            (await db.execute(select(Submission).where(Submission.batch_id == batch.uuid).order_by(Submission.created_at)))
+            .scalars()
+            .all()
+        )
+        if not submissions:
+            raise ResourceNotFoundError(f"Batch {batch_id} has no submissions")
+
+        job_ids = []
+        for submission in submissions:
+            job = CorrectionJob(
+                municipio_id=municipio_id,
+                submission_id=submission.uuid,
+                provider=provider,
+                model=resolve_model(provider, model),
+                status="pending",
+                run_label=run_label,
+            )
+            db.add(job)
+            await db.flush()
+            job_ids.append(job.uuid)
+
+        await db.commit()
+
+        await self._dispatch_correction_jobs(job_ids, municipio_id, provider, model, prompt_template, rubric)
 
         return batch.uuid, job_ids
 
@@ -280,6 +343,8 @@ class AesService:
                 JobManifest(
                     job_id=job.uuid,
                     submission_id=submission.uuid,
+                    source_label=submission.source_label,
+                    run_label=job.run_label,
                     status=job.status,
                     input_type=submission.input_type,
                     transcription=submission.transcription_meta,

@@ -46,6 +46,8 @@ class ResultManifest(BaseModel):
 class JobManifest(BaseModel):
     job_id: UUID
     submission_id: UUID
+    source_label: str | None
+    run_label: str | None
     status: str
     input_type: str
     transcription: dict[str, Any] | None

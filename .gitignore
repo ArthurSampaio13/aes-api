@@ -153,3 +153,6 @@ infra/terraform.tfvars
 *.tfstate.backup
 *.tfstate.*.backup
 infra/*-config
+
+# manifestos exportados antes de recriar o ambiente: contem texto de aluno
+.local/

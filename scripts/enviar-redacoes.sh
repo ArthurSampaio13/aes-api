@@ -12,6 +12,8 @@ PROVIDER="${PROVIDER:-mock}"
 # Vazio deixa a API cair no modelo configurado do provider; um "mock-v1"
 # fixo iria parar no OpenRouter e falhar agora que o campo e honrado.
 MODEL="${MODEL:-}"
+RUN_LABEL="${RUN_LABEL:-run-1}"
+LABEL_PREFIX="${LABEL_PREFIX:-aluno-}"
 
 die() { printf '\033[0;31merro:\033[0m %s\n' "$1" >&2; exit 1; }
 
@@ -50,8 +52,9 @@ for pattern in "$@"; do
   done < <(expandir "$pattern")
 done
 
-args=(-F "essay_prompt_uuid=$PROMPT_UUID" -F "provider=$PROVIDER")
+args=(-F "essay_prompt_uuid=$PROMPT_UUID" -F "provider=$PROVIDER" -F "run_label=$RUN_LABEL")
 [ -z "$MODEL" ] || args+=(-F "model=$MODEL")
+i=0
 for f in "${arquivos[@]}"; do
   [ -f "$f" ] || die "arquivo nao encontrado: $f"
   case "${f,,}" in
@@ -60,7 +63,12 @@ for f in "${arquivos[@]}"; do
     *.pdf) t=application/pdf ;;
     *) die "formato nao aceito: $f (use jpg, png ou pdf de 1 pagina)" ;;
   esac
-  args+=(-F "images=@${f};type=${t}")
+  i=$((i + 1))
+  # O rotulo e a identidade da redacao entre execucoes repetidas. Vai numerado, e
+  # nao com o nome do arquivo, porque nome de arquivo costuma carregar nome de aluno.
+  label="$(printf '%s%02d' "$LABEL_PREFIX" "$i")"
+  printf '  %s -> %s\n' "$(basename "$f")" "$label"
+  args+=(-F "images=@${f};type=${t}" -F "labels=$label")
 done
 
 echo "enviando ${#arquivos[@]} arquivo(s) com provider=$PROVIDER modelo=${MODEL:-<default>}..."
